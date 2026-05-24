@@ -1,5 +1,5 @@
 // ── Config — swap this URL after deploying your Cloudflare Worker ──────────────
-const WORKER_URL = 'https://cart-scheduler-proxy.normbottie.workers.dev';
+const WORKER_URL = 'https://cart-scheduler-proxy.YOUR-SUBDOMAIN.workers.dev';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function t(h,m,pm=false){if(pm&&h!==12)h+=12;if(!pm&&h===12)h=0;return h*60+m;}
@@ -92,7 +92,7 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-5',
+        model:'claude-sonnet-4-20250514',
         max_tokens:2000,
         messages:[{role:'user',content:[
           {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
@@ -106,8 +106,17 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
 
     const raw=data.content.map(b=>b.text||'').join('');
-    const clean=raw.replace(/```json|```/g,'').trim();
-    employees=JSON.parse(clean);
+    // Strip any markdown fences and find the JSON array
+    let clean=raw.replace(/```json|```/g,'').trim();
+    // Extract just the JSON array if there's surrounding text
+    const arrMatch=clean.match(/\[[\s\S]*\]/);
+    if(arrMatch) clean=arrMatch[0];
+    try {
+      employees=JSON.parse(clean);
+    } catch(parseErr) {
+      console.error('Raw response:', raw);
+      throw new Error('Could not parse AI response as JSON. Check console for details.');
+    }
     excludeFromCarts=new Set();
     excludeFromSweep=new Set();
 
