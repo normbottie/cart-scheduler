@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CartSched">
+<title>Cart Scheduler</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Cart Scheduler</h1>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+    <span id="sched-date" style="font-size:13px;font-weight:500"></span>
+    <span class="watermark-header">Made by Norm Bottie</span>
+  </div>
+</header>
+<main>
+
+  <div class="step">
+    <div class="step-title">1 — Upload daily overview PDF</div>
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <i class="ti ti-file-upload"></i>
+      <strong>Click to upload or drag &amp; drop</strong>
+      <p>Daily Overview PDF from the scheduling system</p>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" style="display:none">
+    <div class="file-chip" id="file-chip" style="display:none">
+      <i class="ti ti-file-text" style="font-size:16px;color:var(--muted)"></i>
+      <span id="file-chip-name"></span>
+      <button class="rm" onclick="clearFile()">✕</button>
+    </div>
+    <button class="parse-btn" id="parse-btn" onclick="parsePDF()" disabled>
+      <i class="ti ti-sparkles"></i> Parse PDF with AI
+    </button>
+    <div class="status" id="status" style="display:none">
+      <div class="spinner"></div>
+      <span id="status-text"></span>
+    </div>
+  </div>
+
+  <div class="step" id="assoc-section" style="display:none">
+    <div class="step-title">2 — Associates found</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Toggle per-day exclusions. "No carts" removes from cart scheduling. "No sweep" removes from store sweep.</p>
+    <div class="assoc-grid" id="assoc-grid"></div>
+  </div>
+
+  <div class="step" id="config-section" style="display:none">
+    <div class="step-title">3 — FEC assignment</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Select up to two FECs and their windows. Excluded from carts during those hours. Placed on carts with * only if coverage is short.</p>
+    <div class="fec-section">
+      <div class="fec-box">
+        <label>FEC</label>
+        <select id="fec1-select"></select>
+        <label>From</label>
+        <input type="time" id="fec1-start" value="11:00">
+        <label>To</label>
+        <input type="time" id="fec1-end" value="18:00">
+      </div>
+      <div class="fec-box">
+        <label>Closing FEC</label>
+        <select id="fec2-select"></select>
+        <label>From</label>
+        <input type="time" id="fec2-start" value="18:00">
+        <label>To</label>
+        <input type="time" id="fec2-end" value="22:00">
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="slots-section" style="display:none">
+    <div class="step-title">4 — Slot configuration (7:00 AM – 10:00 PM)</div>
+    <div class="bulk-row">
+      <label>Set all capacity:</label>
+      <input type="number" id="bulk-cap" min="0" max="10" value="1">
+      <button class="sm-btn" onclick="setAllCap()">Apply</button>
+      <label style="margin-left:8px">Set all type:</label>
+      <select id="bulk-type" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+        <option value="cart">Cart</option>
+        <option value="lot">Lot/Bag</option>
+      </select>
+      <button class="sm-btn" onclick="setAllType()">Apply</button>
+    </div>
+    <table class="slot-table">
+      <thead><tr><th>Time</th><th>People</th><th>Type</th></tr></thead>
+      <tbody id="slot-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="generate-wrap" style="display:none;margin-bottom:16px">
+    <button class="generate-btn" onclick="buildSchedule()">
+      <i class="ti ti-calendar-event"></i> Generate Schedule
+    </button>
+  </div>
+
+  <div class="step" id="results-section" style="display:none">
+    <div class="step-title">Shift counts</div>
+    <div style="overflow-x:auto">
+      <table class="counts-table">
+        <thead><tr><th>Name</th><th>Cart window</th><th>Meal</th><th style="text-align:center">Slots</th></tr></thead>
+        <tbody id="counts-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="step" id="sched-preview" style="display:none">
+    <div class="step-title">Schedule preview</div>
+    <div style="overflow-x:auto">
+      <table class="sched-table">
+        <thead><tr>
+          <th style="width:68px">Time</th>
+          <th style="width:60px">#</th>
+          <th>Associate(s)</th>
+          <th style="width:140px;text-align:center">Store Sweep</th>
+        </tr></thead>
+        <tbody id="sched-tbody"></tbody>
+      </table>
+    </div>
+    <button class="dl-btn" onclick="exportPDF()">
+      <i class="ti ti-download"></i> Download PDF
+    </button>
+  </div>
+
+</main>
+<script src="app.js"></script>
+</body>
+</html>
