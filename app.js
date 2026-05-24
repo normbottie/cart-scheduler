@@ -101,7 +101,10 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
       })
     });
 
-    if(!res.ok) throw new Error(`Worker error ${res.status}`);
+    if(!res.ok){
+      let errText='';try{errText=await res.text();}catch(e){}
+      throw new Error(`Worker error ${res.status}: ${errText}`);
+    }
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
 
@@ -139,7 +142,20 @@ function setStatus(msg){
   if(msg) document.getElementById('status-text').textContent=msg;
 }
 function fileToB64(file){
-  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=function(e){
+      try{
+        const result=e.target.result;
+        const base64=result.split(',')[1];
+        if(!base64)throw new Error('Empty file result');
+        res(base64);
+      }catch(err){rej(err);}
+    };
+    r.onerror=function(e){rej(new Error('FileReader error: '+e.target.error));};
+    r.onabort=function(){rej(new Error('FileReader aborted'));};
+    try{r.readAsDataURL(file);}catch(err){rej(err);}
+  });
 }
 
 // ── Render associates ─────────────────────────────────────────────────────────
