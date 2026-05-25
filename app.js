@@ -208,23 +208,25 @@ function initSlots(){
 }
 
 function populateSplitSelectors(){
+  const saved=JSON.parse(localStorage.getItem('cart-scheduler-split-range')||'{}');
   ['split-start','split-end'].forEach(id=>{
     const sel=document.getElementById(id);
     if(!sel)return;
-    const prev=sel.value;
     sel.innerHTML='<option value="">None</option>';
     BASE_SLOTS.forEach(m=>{
       const o=document.createElement('option');
       o.value=m;o.textContent=minsToStr(m);
       sel.appendChild(o);
     });
-    if(prev)sel.value=prev;
+    if(saved[id])sel.value=saved[id];
   });
 }
 
 function applySplitRange(){
   const startVal=document.getElementById('split-start').value;
   const endVal=document.getElementById('split-end').value;
+  // Persist selection
+  localStorage.setItem('cart-scheduler-split-range',JSON.stringify({'split-start':startVal,'split-end':endVal}));
   // Reset all to 30-min first
   BASE_SLOTS.forEach(m=>{
     slotIntervals[m]=30;
