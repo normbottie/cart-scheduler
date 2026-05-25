@@ -62,7 +62,9 @@ let permNoCart=loadPermNoCart();
 // ── State ─────────────────────────────────────────────────────────────────────
 let employees=[], scheduleDate='', slotCaps={}, slotTypes={}, lastSchedule=null;
 let excludeFromCarts=new Set(), excludeFromSweep=new Set();
-const SLOTS=[];for(let m=7*60;m<22*60;m+=30)SLOTS.push(m);
+const BASE_SLOTS=[];for(let m=7*60;m<22*60;m+=30)BASE_SLOTS.push(m);
+let SLOTS=[...BASE_SLOTS]; // actual slots used in scheduling (may include 15-min)
+let slotIntervals={}; // slotStart -> 15 or 30
 let scannedPages=[]; // array of {dataUrl, b64, name}
 let cartSchedImage=null; // single cart service schedule image
 
@@ -157,8 +159,48 @@ function closeStep(id){
 
 // ── Slots ─────────────────────────────────────────────────────────────────────
 function initSlots(){
-  SLOTS.forEach(m=>{slotCaps[m]=getDefaultCap(m);slotTypes[m]='cart';});
+  SLOTS=[...BASE_SLOTS];
+  BASE_SLOTS.forEach(m=>{
+    slotCaps[m]=getDefaultCap(m);
+    slotTypes[m]='cart';
+    slotIntervals[m]=30;
+  });
   renderSlotTable();
+}
+
+function splitSlot(base30){
+  // Split a 30-min slot into two 15-min slots
+  const h1=base30, h2=base30+15;
+  slotIntervals[h1]=15;
+  slotIntervals[h2]=15;
+  slotCaps[h2]=slotCaps[h1]; // inherit capacity
+  slotTypes[h2]=slotTypes[h1]; // inherit type
+  // Rebuild SLOTS in order
+  rebuildSlots();
+  renderSlotTable();
+}
+
+function mergeSlot(base30){
+  // Merge two 15-min slots back into one 30-min slot
+  const h2=base30+15;
+  slotIntervals[base30]=30;
+  delete slotIntervals[h2];
+  delete slotCaps[h2];
+  delete slotTypes[h2];
+  rebuildSlots();
+  renderSlotTable();
+}
+
+function rebuildSlots(){
+  SLOTS=[];
+  for(let m=7*60;m<22*60;m+=30){
+    if(slotIntervals[m]===15){
+      SLOTS.push(m);
+      SLOTS.push(m+15);
+    } else {
+      SLOTS.push(m);
+    }
+  }
 }
 function getDefaultCap(m){
   if(m>=t(10,30)&&m<t(18,30))return 2;
@@ -637,19 +679,46 @@ function confirmSuggestedFec(name){
 // ── Slot table ────────────────────────────────────────────────────────────────
 function renderSlotTable(){
   const tbody=document.getElementById('slot-tbody');tbody.innerHTML='';
-  SLOTS.forEach(m=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td class="time-cell">${minsToStr(m)}</td>
-      <td><input type="number" min="0" max="10" value="${slotCaps[m]}" onchange="slotCaps[${m}]=parseInt(this.value)||0"></td>
-      <td><select onchange="slotTypes[${m}]=this.value">
-        <option value="cart"${slotTypes[m]==='cart'?' selected':''}>Cart</option>
-        <option value="lot"${slotTypes[m]==='lot'?' selected':''}>Lot/Bag</option>
-      </select></td>`;
-    tbody.appendChild(tr);
-  });
+  // Render by base 30-min slots
+  for(let m=7*60;m<22*60;m+=30){
+    if(slotIntervals[m]===15){
+      // Show two 15-min rows with merge button on first
+      [m, m+15].forEach((s,idx)=>{
+        const tr=document.createElement('tr');
+        tr.className='slot-15';
+        const mergeBtn=idx===0?`<button class="split-btn merge-btn" onclick="mergeSlot(${m})" title="Merge back to 30 min">⊖</button>`:'<span class="split-spacer"></span>';
+        tr.innerHTML=`<td class="time-cell"><span class="slot-15-indicator">15</span>${minsToStr(s)}</td>
+          <td><input type="number" min="0" max="10" value="${slotCaps[s]||0}" onchange="slotCaps[${s}]=parseInt(this.value)||0"></td>
+          <td><select onchange="slotTypes[${s}]=this.value">
+            <option value="cart"${slotTypes[s]==='cart'?' selected':''}>Cart</option>
+            <option value="lot"${slotTypes[s]==='lot'?' selected':''}>Lot/Bag</option>
+          </select></td>
+          <td>${mergeBtn}</td>`;
+        tbody.appendChild(tr);
+      });
+    } else {
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td class="time-cell">${minsToStr(m)}</td>
+        <td><input type="number" min="0" max="10" value="${slotCaps[m]||0}" onchange="slotCaps[${m}]=parseInt(this.value)||0"></td>
+        <td><select onchange="slotTypes[${m}]=this.value">
+          <option value="cart"${slotTypes[m]==='cart'?' selected':''}>Cart</option>
+          <option value="lot"${slotTypes[m]==='lot'?' selected':''}>Lot/Bag</option>
+        </select></td>
+        <td><button class="split-btn" onclick="splitSlot(${m})" title="Split into 15-min slots">⊕</button></td>`;
+      tbody.appendChild(tr);
+    }
+  }
 }
-function setAllCap(){const v=parseInt(document.getElementById('bulk-cap').value)||1;SLOTS.forEach(m=>{slotCaps[m]=v;});renderSlotTable();}
-function setAllType(){const tp=document.getElementById('bulk-type').value;SLOTS.forEach(m=>{slotTypes[m]=tp;});renderSlotTable();}
+function setAllCap(){
+  const v=parseInt(document.getElementById('bulk-cap').value)||1;
+  SLOTS.forEach(m=>{slotCaps[m]=v;});
+  renderSlotTable();
+}
+function setAllType(){
+  const tp=document.getElementById('bulk-type').value;
+  SLOTS.forEach(m=>{slotTypes[m]=tp;});
+  renderSlotTable();
+}
 
 // ── Parse Cart Schedule Image ─────────────────────────────────────────────────
 async function parseCartScheduleImage(){
@@ -689,9 +758,16 @@ Example: [{"time":"7:00am","capacity":1,"type":"lot"},{"time":"7:30am","capacity
     let applied=0;
     slots.forEach(slot=>{
       const mins=timeToMins(slot.time);
-      if(mins!==null&&SLOTS.includes(mins)){
-        slotCaps[mins]=parseInt(slot.capacity)||0;
-        slotTypes[mins]=slot.type==='lot'?'lot':'cart';
+      if(mins!==null&&BASE_SLOTS.includes(mins)){
+        const cap=parseInt(slot.capacity)||0;
+        const type=slot.type==='lot'?'lot':'cart';
+        slotCaps[mins]=cap;
+        slotTypes[mins]=type;
+        // If this slot is split into 15-min halves, apply to both
+        if(slotIntervals[mins]===15){
+          slotCaps[mins+15]=cap;
+          slotTypes[mins+15]=type;
+        }
         applied++;
       }
     });
