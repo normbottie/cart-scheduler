@@ -178,3 +178,9 @@ input,textarea,select{
 
 /* ── Sub-hint text ── */
 .sub-hint{font-size:11px;color:var(--muted);font-weight:400;}
+
+/* ── Name editing ── */
+.edit-name-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:0.5;flex-shrink:0;}
+.edit-name-btn:hover{opacity:1;}
+.name-edit-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.name-edit-input{flex:1;min-width:0;padding:5px 8px;font-size:13px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text);-webkit-user-select:text;user-select:text;}

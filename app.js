@@ -401,7 +401,7 @@ function renderAssociates(){
   const grid=document.getElementById('assoc-grid');
   grid.innerHTML='';
   const seen=new Set();
-  employees.forEach(e=>{
+  employees.forEach((e,i)=>{
     if(seen.has(e.name))return;seen.add(e.name);
     const noCart=excludeFromCarts.has(e.name)||permNoCart.has(e.name);
     const noSweep=excludeFromSweep.has(e.name);
@@ -431,6 +431,31 @@ function toggleExclude(type,name,btn){
   const label=type==='cart'?'No carts':'No sweep';
   if(set.has(name)){set.delete(name);btn.classList.remove(cls);btn.textContent=label;}
   else{set.add(name);btn.classList.add(cls);btn.textContent=`✕ ${label}`;}
+}
+
+
+// ── Name editing ──────────────────────────────────────────────────────────────
+function startEditName(i){
+  document.getElementById('name-edit-'+i).style.display='flex';
+  const inp=document.getElementById('name-input-'+i);
+  inp.focus();inp.select();
+}
+function cancelEditName(i){
+  document.getElementById('name-edit-'+i).style.display='none';
+  document.getElementById('name-input-'+i).value=employees[i].name;
+}
+function saveEditName(i){
+  const newName=document.getElementById('name-input-'+i).value.trim();
+  if(!newName)return;
+  const oldName=employees[i].name;
+  // Update all entries with this name (split shifts)
+  employees.forEach(e=>{if(e.name===oldName)e.name=newName;});
+  // Update exclusion sets
+  if(excludeFromCarts.has(oldName)){excludeFromCarts.delete(oldName);excludeFromCarts.add(newName);}
+  if(excludeFromSweep.has(oldName)){excludeFromSweep.delete(oldName);excludeFromSweep.add(newName);}
+  document.getElementById('name-edit-'+i).style.display='none';
+  renderAssociates();
+  renderFECOptions();
 }
 
 // ── FEC options ───────────────────────────────────────────────────────────────
@@ -506,6 +531,31 @@ function toggleExclude(type,name,btn){
   const label=type==='cart'?'No carts':'No sweep';
   if(set.has(name)){set.delete(name);btn.classList.remove(cls);btn.textContent=label;}
   else{set.add(name);btn.classList.add(cls);btn.textContent=`✕ ${label}`;}
+}
+
+
+// ── Name editing ──────────────────────────────────────────────────────────────
+function startEditName(i){
+  document.getElementById('name-edit-'+i).style.display='flex';
+  const inp=document.getElementById('name-input-'+i);
+  inp.focus();inp.select();
+}
+function cancelEditName(i){
+  document.getElementById('name-edit-'+i).style.display='none';
+  document.getElementById('name-input-'+i).value=employees[i].name;
+}
+function saveEditName(i){
+  const newName=document.getElementById('name-input-'+i).value.trim();
+  if(!newName)return;
+  const oldName=employees[i].name;
+  // Update all entries with this name (split shifts)
+  employees.forEach(e=>{if(e.name===oldName)e.name=newName;});
+  // Update exclusion sets
+  if(excludeFromCarts.has(oldName)){excludeFromCarts.delete(oldName);excludeFromCarts.add(newName);}
+  if(excludeFromSweep.has(oldName)){excludeFromSweep.delete(oldName);excludeFromSweep.add(newName);}
+  document.getElementById('name-edit-'+i).style.display='none';
+  renderAssociates();
+  renderFECOptions();
 }
 
 // ── FEC options ───────────────────────────────────────────────────────────────
