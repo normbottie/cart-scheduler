@@ -167,12 +167,7 @@ function getDefaultCap(m){
 // ── File ──────────────────────────────────────────────────────────────────────
 let currentFile=null;
 function setFile(f){
-  currentFile=f;
-  document.getElementById('drop-zone').style.display='none';
-  document.getElementById('file-chip').style.display='flex';
-  document.getElementById('file-chip-name').textContent=f.name;
-  document.getElementById('parse-btn').disabled=false;
-  setStatus('');
+  // PDF upload removed - no-op
 }
 function clearFile(){
   currentFile=null;
@@ -193,13 +188,6 @@ function clearFile(){
 
 // ── Scan functions ───────────────────────────────────────────────────────────
 function addScannedPage(file){
-
-  // Clear PDF if switching to scan mode
-  if(currentFile){
-    currentFile=null;
-    document.getElementById('file-chip').style.display='none';
-    document.getElementById('drop-zone').style.display='none';
-  }
   const reader=new FileReader();
   reader.onload=e=>{
     const dataUrl=e.target.result;
@@ -215,9 +203,8 @@ function addScannedPage(file){
 function removeScannedPage(idx){
   scannedPages.splice(idx,1);
   renderScanPreviews();
-  if(scannedPages.length===0&&!currentFile){
+  if(scannedPages.length===0){
     document.getElementById('parse-btn').disabled=true;
-    document.getElementById('drop-zone').style.display='block';
   }
 }
 
