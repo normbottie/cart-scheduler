@@ -74,13 +74,13 @@ window.addEventListener('load',()=>{
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
   // Close menu on outside click
   document.getElementById('cart-sched-input').addEventListener('change',e=>{
-    if(e.target.files[0]) setCartSchedImage(e.target.files[0]);
-    e.target.value='';
+    const file=e.target.files[0];
+    if(file) setCartSchedImage(file, e.target);
   });
 
   document.getElementById('scan-input').addEventListener('change',e=>{
-    if(e.target.files[0]) addScannedPage(e.target.files[0]);
-    e.target.value=''; // reset so same file can be re-selected
+    const file=e.target.files[0];
+    if(file) addScannedPage(file, e.target);
   });
 
   document.addEventListener('click',e=>{
@@ -187,7 +187,7 @@ function clearFile(){
 }
 
 // ── Scan functions ───────────────────────────────────────────────────────────
-function addScannedPage(file){
+function addScannedPage(file, inputEl){
   const reader=new FileReader();
   reader.onload=e=>{
     const dataUrl=e.target.result;
@@ -196,7 +196,9 @@ function addScannedPage(file){
     scannedPages.push({dataUrl,b64,mediaType,name:file.name});
     renderScanPreviews();
     document.getElementById('parse-btn').disabled=false;
+    if(inputEl) inputEl.value=''; // reset after load completes
   };
+  reader.onerror=()=>{ alert('Could not read image. Please try again.'); };
   reader.readAsDataURL(file);
 }
 
@@ -229,7 +231,7 @@ function renderScanPreviews(){
   addBtn.style.display='flex';
 }
 
-function setCartSchedImage(file){
+function setCartSchedImage(file, inputEl){
   const reader=new FileReader();
   reader.onload=e=>{
     const dataUrl=e.target.result;
@@ -246,7 +248,9 @@ function setCartSchedImage(file){
       <button class="scan-thumb-rm" onclick="clearCartSched()">✕</button>
     </div>`;
   };
+  reader.onerror=()=>{ alert('Could not read image.'); };
   reader.readAsDataURL(file);
+  if(inputEl) setTimeout(()=>inputEl.value='', 100);
 }
 
 function clearCartSched(){
