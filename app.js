@@ -307,10 +307,12 @@ async function parsePDF(){
 
 The schedule has columns: Associate name | Job class | Shift/Roles (time ranges with role codes) | Meals (rightmost).
 
+IMPORTANT - Names that wrap to two lines: Some associate names are too long to fit on one line and wrap to the next line within the same row. For example "Gogibedashvili," on one line and "Sandro" on the next are ONE person named "Gogibedashvili, Sandro". Always combine wrapped name parts into a single name before processing.
+
 Extract ALL associates whose Job class says: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all others.
 
 Return a JSON array where each object has these exact keys:
-"name" (string: convert "Last, First" to "First Last". Remove [m] or [mm] prefix. Fix ALL CAPS names to Title Case e.g. "MARK SALEH" becomes "Mark Saleh"),
+"name" (string: First Last - reverse Last,First format, strip [m]/[mm] prefixes, fix ALL CAPS to Title Case. If name wraps two lines, combine first),
 "job" (string: "fsc"=Front Service Clerk, "cashier"=Cashier, "css"=Customer Service Staff, "cstl"=Cust Serv Team Leader, "csm"=CS Manager, "mgr"=other manager),
 "cartStart" (string: start time of CS-Bag role. CRITICAL: 06:45 AM = "6:45am", 01:00 PM = "1:00pm", 12:00 PM = "12:00pm". Times before 12 with AM are morning, times with PM are afternoon/evening. null if no CS-Bag),
 "cartEnd" (string: end time of CS-Bag role, same format, null if none),
@@ -320,9 +322,7 @@ Return a JSON array where each object has these exact keys:
 "csCleaningSegments" (array of {start,end} for CS-Cleaning roles, or []),
 "csFloorCareSegments" (array of {start,end} for CS-Floor Care roles, or []).
 
-Times are like "06:45 AM" - convert to "6:45am". Multiple CS-Bag segments: use earliest start and latest end. Ignore handwriting.
-
-IMPORTANT: Start your entire response with [ and end with ]. No markdown, no explanation.`;
+Rules: Multiple CS-Bag segments = use earliest start and latest end. Ignore handwriting. Start response with [ and end with ]. No markdown.`
 
     // Build content array from scanned images
     setStatus(`Reading ${scannedPages.length} page(s)...`);
