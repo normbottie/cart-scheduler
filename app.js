@@ -93,7 +93,7 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-5',
-        max_tokens:2000,
+        max_tokens:4000,
         messages:[{role:'user',content:[
           {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
           {type:'text',text:prompt}
