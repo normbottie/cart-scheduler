@@ -109,7 +109,8 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
 
     const parsed2=typeof data==='string'?JSON.parse(data):data;
-    const raw=(parsed2.content||[]).map(b=>b.text||'').join('');
+    const rawText=(parsed2.content||[]).map(b=>b.text||'').join('');
+    const raw=rawText.replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\"/g,'"');
     // Strip any markdown fences and find the JSON array
     let clean=raw.replace(/```json|```/gi,'').replace(/^[\s\S]*?(?=\[)/,'').trim();
     // Extract just the JSON array if there's surrounding text
