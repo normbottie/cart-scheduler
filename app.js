@@ -308,12 +308,12 @@ The schedule has columns: Associate name | Job class | Shift/Roles (time ranges 
 Extract ALL associates whose Job class says: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all others.
 
 Return a JSON array where each object has these exact keys:
-"name" (string: First Last - reverse Last,First format, strip [m]/[mm] prefixes, fix ALL CAPS to Title Case),
+"name" (string: convert "Last, First" to "First Last". Remove [m] or [mm] prefix. Fix ALL CAPS names to Title Case e.g. "MARK SALEH" becomes "Mark Saleh"),
 "job" (string: "fsc"=Front Service Clerk, "cashier"=Cashier, "css"=Customer Service Staff, "cstl"=Cust Serv Team Leader, "csm"=CS Manager, "mgr"=other manager),
-"cartStart" (string like "6:45am" = start of CS-Bag role, or null),
-"cartEnd" (string like "1:00pm" = end of CS-Bag role, or null),
-"mealStart" (string from Meals column or null),
-"mealEnd" (string from Meals column or null),
+"cartStart" (string: start time of CS-Bag role. CRITICAL: 06:45 AM = "6:45am", 01:00 PM = "1:00pm", 12:00 PM = "12:00pm". Times before 12 with AM are morning, times with PM are afternoon/evening. null if no CS-Bag),
+"cartEnd" (string: end time of CS-Bag role, same format, null if none),
+"mealStart" (string: time from rightmost Meals column, same format, null if none),
+"mealEnd" (string: end time from Meals column, same format, null if none),
 "autoFecSegments" (array of {start,end} for CS-FEC roles, or []),
 "csCleaningSegments" (array of {start,end} for CS-Cleaning roles, or []),
 "csFloorCareSegments" (array of {start,end} for CS-Floor Care roles, or []).
@@ -501,36 +501,19 @@ function setAllType(){const tp=document.getElementById('bulk-type').value;SLOTS.
 // ── Parse Cart Schedule Image ─────────────────────────────────────────────────
 async function parseCartScheduleImage(){
   try{
-    const cartPrompt=`This is a Cart Service / Express Schedule. Read the "Parking Lot" column for each time slot.
+    const cartPrompt=`This is a Cart Service / Express Schedule printed form. Look at the "Parking Lot" column (third column).
 
-For each 30-minute time slot from 7:00 AM to 10:00 PM, return:
-- time: start time in "H:MMam/pm" format e.g. "7:00am", "1:30pm"
-- capacity: the number shown in the Parking Lot column (integer). If blank or 0, use 0.
-- type: "lot" if the cell says "lot/bag" or "lot bag", otherwise "cart"
+For EVERY row that has a time slot (e.g. "7:00 AM - 7:30 AM"), read the Parking Lot cell and return:
+- "time": the start time only, as "7:00am", "7:30am", "1:00pm" etc (lowercase, no leading zero for hours 1-9... wait, use "7:00am" not "07:00am")
+- "capacity": the integer in that cell. If it says "lot/bag" or is blank with lot/bag written, use 1. If blank or 0, use 0.
+- "type": "lot" if the cell contains "lot/bag", "lot bag", or "lot", otherwise "cart"
 
-Ignore the Express column, Names column, and any handwriting.
-Return ONLY a valid JSON array like: [{"time":"7:00am","capacity":1,"type":"lot"},...]
-No markdown, no explanation.`;
+Important: look carefully — some cells say "lot/bag" as text instead of a number. Those should have type "lot".
+
+Return ONLY a JSON array. No markdown. Start with [ end with ].
+Example: [{"time":"7:00am","capacity":1,"type":"lot"},{"time":"7:30am","capacity":1,"type":"lot"},{"time":"8:00am","capacity":1,"type":"cart"}]`;
 
     const res=await fetch(WORKER_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-5',
-        max_tokens:2000,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:cartSchedImage.mediaType||'image/jpeg',data:cartSchedImage.b64}},
-          {type:'text',text:cartPrompt}
-        ]}]
-      })
-    });
-    if(!res.ok)return;
-    const data=await res.json();
-    if(!data.success||!data.employees)return; // worker returns employees key for any parse
-
-    // Actually the worker parses JSON generically - re-fetch raw
-    // Use a direct approach: send to worker and get back slot data
-    const res2=await fetch(WORKER_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -543,21 +526,24 @@ No markdown, no explanation.`;
         _rawParse:true
       })
     });
-    const data2=await res2.json();
-    const rawTxt=(data2.content||[]).map(b=>b.text||'').join('');
+    if(!res.ok){console.warn('Cart schedule request failed:',res.status);return;}
+    const data=await res.json();
+    const rawTxt=(data.content||[]).map(b=>b.text||'').join('').trim();
+    console.log('Cart schedule raw response:',rawTxt.substring(0,200));
     const s=rawTxt.indexOf('['),e=rawTxt.lastIndexOf(']');
-    if(s===-1||e<s)return;
+    if(s===-1||e<s){console.warn('No JSON array in cart response');return;}
     const slots=JSON.parse(rawTxt.substring(s,e+1));
-    // Apply to slotCaps and slotTypes
+    let applied=0;
     slots.forEach(slot=>{
       const mins=timeToMins(slot.time);
       if(mins!==null&&SLOTS.includes(mins)){
         slotCaps[mins]=parseInt(slot.capacity)||0;
         slotTypes[mins]=slot.type==='lot'?'lot':'cart';
+        applied++;
       }
     });
     renderSlotTable();
-    console.log('Cart schedule applied:',slots.length,'slots updated');
+    console.log('Cart schedule applied:',applied,'slots updated from',slots.length,'returned');
   }catch(e){
     console.warn('Cart schedule parse failed:',e.message);
   }
