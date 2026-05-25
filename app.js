@@ -1115,10 +1115,9 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
     doc.text('Cart Schedule '+scheduleDate+' (continued)',MARGIN,py);
     doc.setTextColor(0,0,0);py+=14;return drawHeader(py);
   };
-  let y=50;
-  doc.setFont('helvetica','bold');doc.setFontSize(17);doc.setTextColor(0,0,0);
-  doc.text('Cart Schedule '+scheduleDate,MARGIN,y);
-  y+=26;y=drawHeader(y);
+  // No separate title — title goes in the chart header row itself
+  let y=MARGIN;
+  y=drawHeader(y);
   schedule.forEach(function(s,idx){
     if(y>PH-FOOTER_SPACE-20)y=newPage();
     if(idx%2===0){doc.setFillColor(251,251,249);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');}
