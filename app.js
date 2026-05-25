@@ -109,30 +109,19 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
 
     const rawTxt=data.content.map(b=>b.text||'').join('');
-    // The text content is itself a JSON-encoded string - parse it directly
-    let raw;
-    try{
-      const decoded=JSON.parse(rawTxt);
-      raw=typeof decoded==='string'?decoded:rawTxt;
-    }catch(e){ raw=rawTxt; }
+    let employees_parsed=null;
+    try{ employees_parsed=JSON.parse(rawTxt); }catch(e){}
+    if(!Array.isArray(employees_parsed)){
+      try{ const s=rawTxt.indexOf('['),en=rawTxt.lastIndexOf(']'); if(s!==-1&&en>s) employees_parsed=JSON.parse(rawTxt.substring(s,en+1)); }catch(e){}
+    }
+    if(!Array.isArray(employees_parsed)){
+      try{ const st=rawTxt.replace(/```json|```/gi,''); const s=st.indexOf('['),en=st.lastIndexOf(']'); if(s!==-1&&en>s) employees_parsed=JSON.parse(st.substring(s,en+1)); }catch(e){}
+    }
+    if(!Array.isArray(employees_parsed)){ console.error('Raw:',rawTxt); throw new Error('Could not parse AI response. Check browser console.'); }
+    employees=employees_parsed;
+    const raw=rawTxt;
     // Strip any markdown fences and find the JSON array
-    let clean=raw.replace(/```json|```/gi,'').replace(/^[\s\S]*?(?=\[)/,'').trim();
-    // Extract just the JSON array if there's surrounding text
-    // Find the JSON array - strip everything before first [ and after last ]
-    clean = clean.replace(/```json|```/gi, '');
-    const startIdx = clean.indexOf('[');
-    const endIdx = clean.lastIndexOf(']');
-    if(startIdx === -1 || endIdx === -1 || endIdx < startIdx){
-      throw new Error('No JSON array found. Raw: ' + clean.substring(0,200));
-    }
-    clean = clean.substring(startIdx, endIdx + 1);
-    try {
-      console.log("Attempting to parse:",clean.substring(0,100)); employees=JSON.parse(clean);
-    } catch(parseErr) {
-      console.error('Raw response:', raw);
-      throw new Error('Could not parse AI response as JSON. Check console for details.');
-    }
-    excludeFromCarts=new Set();
+    // parsing handled above
     excludeFromSweep=new Set();
 
     setStatus('');
