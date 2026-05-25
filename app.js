@@ -568,13 +568,14 @@ async function exportPDF(){
   const SWEEP_RIGHT=PW-MARGIN,SWEEP_W=132,SW_SUB_W=66,MAX_SW=2;
   const COL_SW=SWEEP_RIGHT-SWEEP_W;
 
+  const MID=ROW_H/2+2; // vertical center offset
   const drawHeader=y=>{
     doc.setFillColor(224,222,216);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
-    doc.text('Time',COL_TIME,y+ROW_H-5);
-    doc.text('#',COL_NUM,y+ROW_H-5);
-    doc.text('Associate(s)',COL_A,y+ROW_H-5);
-    doc.text('Store Sweep',COL_SW,y+ROW_H-5);
+    doc.text('Time',COL_TIME,y+MID);
+    doc.text('#',COL_NUM,y+MID);
+    doc.text('Associate(s)',COL_A,y+MID);
+    doc.text('Store Sweep',COL_SW,y+MID);
     doc.setDrawColor(200,200,200);doc.setLineWidth(0.5);
     doc.line(COL_SW-4,y-3,COL_SW-4,y+ROW_H-3);
     doc.setTextColor(0,0,0);
@@ -630,7 +631,7 @@ async function exportPDF(){
       doc.setTextColor(26,107,58);
       const sw=Array.isArray(s.sweep)?s.sweep:[s.sweep];
       sw.slice(0,MAX_SW).forEach((n,si)=>{
-        doc.text(firstLast(n),COL_SW+si*SW_SUB_W+SW_SUB_W/2,y+ROW_H-5,{align:'center'});
+        doc.text(firstLast(n),COL_SW+si*SW_SUB_W,y+ROW_H-5);
       });
       doc.setTextColor(0,0,0);
     }
