@@ -418,7 +418,7 @@ function renderAssociates(){
     const nameInfo=document.createElement('div');
     nameInfo.innerHTML='<div class="name" id="name-display-'+i+'">'+e.name+'</div><div class="meta">'+jobLabel(e.job)+' · '+range+'</div>'+meal+fecNote+permNote;
     const editBtn=document.createElement('button');
-    editBtn.className='edit-name-btn';editBtn.title='Edit name';editBtn.textContent='✏';
+    editBtn.className='edit-name-btn';editBtn.title='Edit name';editBtn.textContent='✏️';
     editBtn.onclick=(()=>{const idx=i;return()=>startEditName(idx);})();
     headerRow.appendChild(nameInfo);headerRow.appendChild(editBtn);
     div.appendChild(headerRow);
