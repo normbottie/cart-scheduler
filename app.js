@@ -59,6 +59,19 @@ function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PER
 function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));}
 let permNoCart=loadPermNoCart();
 
+// ── Name corrections (persisted) ──────────────────────────────────────────────
+const CORRECTIONS_KEY='cart-scheduler-name-corrections';
+function loadCorrections(){try{return JSON.parse(localStorage.getItem(CORRECTIONS_KEY)||'{}');}catch(e){return {};}}
+function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));}
+let nameCorrections=loadCorrections(); // {wrongName: correctName}
+
+function applyCorrections(empList){
+  return empList.map(e=>{
+    const corrected=nameCorrections[e.name];
+    return corrected?{...e,name:corrected}:e;
+  });
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let employees=[], scheduleDate='', slotCaps={}, slotTypes={}, lastSchedule=null;
 let excludeFromCarts=new Set(), excludeFromSweep=new Set();
@@ -113,15 +126,40 @@ function renderPermNoCartMenu(){
   list.innerHTML='';
   if(permNoCart.size===0){
     list.innerHTML='<div style="font-size:12px;color:var(--muted);padding:6px 0">No permanent exclusions</div>';
-    return;
+  } else {
+    permNoCart.forEach(name=>{
+      const div=document.createElement('div');div.className='perm-row';
+      const btn=document.createElement('button');btn.textContent='✕';
+      btn.onclick=()=>removePermNoCart(name);
+      div.innerHTML='<span>'+name+'</span>';
+      div.appendChild(btn);list.appendChild(div);
+    });
   }
-  permNoCart.forEach(name=>{
-    const div=document.createElement('div');
-    div.className='perm-row';
-    div.innerHTML=`<span>${name}</span><button onclick="removePermNoCart('${name.replace(/'/g,"\\'")}')">✕</button>`;
-    list.appendChild(div);
+  // Corrections section
+  const corrKeys=Object.keys(nameCorrections);
+  const corrSection=document.getElementById('corrections-section');
+  const corrList=document.getElementById('corrections-list');
+  if(!corrSection||!corrList)return;
+  if(corrKeys.length===0){corrSection.style.display='none';return;}
+  corrSection.style.display='block';
+  corrList.innerHTML='';
+  corrKeys.forEach(wrong=>{
+    const right=nameCorrections[wrong];
+    const div=document.createElement('div');div.className='perm-row';
+    const btn=document.createElement('button');btn.textContent='✕';
+    btn.onclick=()=>removeCorrection(wrong);
+    div.innerHTML='<span style="font-size:11px"><em>'+wrong+'</em> → <strong>'+right+'</strong></span>';
+    div.appendChild(btn);corrList.appendChild(div);
   });
 }
+
+function removeCorrection(wrong){
+  delete nameCorrections[wrong];
+  saveCorrections(nameCorrections);
+  renderPermNoCartMenu();
+}
+
+
 function addPermNoCart(){
   const inp=document.getElementById('perm-input');
   const name=inp.value.trim();
@@ -439,8 +477,8 @@ Rules: Multiple CS-Bag segments = use earliest start and latest end. Ignore hand
       throw new Error('AI could not read the schedule: '+(data.raw?data.raw.substring(0,200):'unknown error'));
     }
 
-    // Normalize names
-    employees=data.employees.map(e=>({...e,name:normalizeName(e.name)}));
+    // Normalize names and apply saved corrections
+    employees=applyCorrections(data.employees.map(e=>({...e,name:normalizeName(e.name)})));
 
     // Parse cart schedule image if provided
     if(cartSchedImage){
@@ -554,6 +592,15 @@ function saveEditName(i){
   const newName=document.getElementById('name-input-'+i).value.trim();
   if(!newName)return;
   const oldName=employees[i].name;
+  if(oldName===newName){document.getElementById('name-edit-'+i).style.display='none';return;}
+  // Ask if they want to save this correction permanently
+  const savePerm=confirm('Save "'+oldName+'" → "'+newName+'" as a permanent correction?\nNext time this name appears it will be auto-fixed.');
+  if(savePerm){
+    nameCorrections[oldName]=newName;
+    // Also carry forward any previous corrections pointing to oldName
+    Object.keys(nameCorrections).forEach(k=>{if(nameCorrections[k]===oldName)nameCorrections[k]=newName;});
+    saveCorrections(nameCorrections);
+  }
   // Update all entries with this name (split shifts)
   employees.forEach(e=>{if(e.name===oldName)e.name=newName;});
   // Update exclusion sets
@@ -654,6 +701,15 @@ function saveEditName(i){
   const newName=document.getElementById('name-input-'+i).value.trim();
   if(!newName)return;
   const oldName=employees[i].name;
+  if(oldName===newName){document.getElementById('name-edit-'+i).style.display='none';return;}
+  // Ask if they want to save this correction permanently
+  const savePerm=confirm('Save "'+oldName+'" → "'+newName+'" as a permanent correction?\nNext time this name appears it will be auto-fixed.');
+  if(savePerm){
+    nameCorrections[oldName]=newName;
+    // Also carry forward any previous corrections pointing to oldName
+    Object.keys(nameCorrections).forEach(k=>{if(nameCorrections[k]===oldName)nameCorrections[k]=newName;});
+    saveCorrections(nameCorrections);
+  }
   // Update all entries with this name (split shifts)
   employees.forEach(e=>{if(e.name===oldName)e.name=newName;});
   // Update exclusion sets
