@@ -24,7 +24,7 @@ function firstLast(n){
 }
 
 // ── Debug mode (bypasses AI, uses mock data) ─────────────────────────────────
-const DEBUG_MODE = false; // set to true to skip AI calls
+let DEBUG_MODE = false;
 const MOCK_EMPLOYEES = [
   {name:"Tony Lafayette",job:"fsc",cartStart:"6:45am",cartEnd:"1:00pm",mealStart:"9:00am",mealEnd:"9:30am",autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
   {name:"Mark Saleh",job:"fsc",cartStart:"8:00am",cartEnd:"2:00pm",mealStart:"10:00am",mealEnd:"10:30am",autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
@@ -38,6 +38,15 @@ const MOCK_EMPLOYEES = [
   {name:"Cliff Norwood",job:"fsc",cartStart:"3:00pm",cartEnd:"7:15pm",mealStart:null,mealEnd:null,autoFecSegments:[],csCleaningSegments:[{start:"11:00am",end:"2:00pm"}],csFloorCareSegments:[]},
   {name:"Trent Eary",job:"fsc",cartStart:"3:15pm",cartEnd:"6:00pm",mealStart:null,mealEnd:null,autoFecSegments:[],csCleaningSegments:[{start:"6:45pm",end:"9:30pm"}],csFloorCareSegments:[{start:"9:30pm",end:"10:30pm"}]},
 ];
+
+// ── Debug mode toggle ─────────────────────────────────────────────────────────
+function toggleDebugMode(){
+  DEBUG_MODE=!DEBUG_MODE;
+  const btn=document.getElementById('debug-btn');
+  btn.textContent=DEBUG_MODE?'🐛 Debug ON':'🐛 Debug';
+  btn.style.background=DEBUG_MODE?'var(--red)':'';
+  btn.style.color=DEBUG_MODE?'white':'';
+}
 
 // ── Persistent no-carts list (localStorage) ───────────────────────────────────
 const PERM_KEY='cart-scheduler-permanent-no-carts';
@@ -71,14 +80,10 @@ window.addEventListener('load',()=>{
 });
 
 // ── Terms agreement ──────────────────────────────────────────────────────────
-const TERMS_KEY='cart-scheduler-terms-accepted';
 function checkTerms(){
-  if(!localStorage.getItem(TERMS_KEY)){
-    document.getElementById('terms-modal').style.display='flex';
-  }
+  document.getElementById('terms-modal').style.display='flex';
 }
 function acceptTerms(){
-  localStorage.setItem(TERMS_KEY,'1');
   document.getElementById('terms-modal').style.display='none';
 }
 
