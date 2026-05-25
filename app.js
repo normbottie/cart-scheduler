@@ -181,20 +181,46 @@ function clearFile(){
 }
 
 // ── Scan functions ───────────────────────────────────────────────────────────
+async function compressImage(file, maxWidth=1600, quality=0.7){
+  return new Promise((resolve)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const scale=Math.min(1, maxWidth/img.width);
+      const w=Math.round(img.width*scale);
+      const h=Math.round(img.height*scale);
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      canvas.toBlob(blob=>{
+        URL.revokeObjectURL(url);
+        const reader=new FileReader();
+        reader.onload=e=>{
+          const dataUrl=e.target.result;
+          const b64=dataUrl.split(',')[1];
+          console.log('Compressed image: '+Math.round(b64.length/1024)+'KB');
+          resolve({b64,mediaType:'image/jpeg'});
+        };
+        reader.readAsDataURL(blob);
+      },'image/jpeg',quality);
+    };
+    img.onerror=()=>resolve(null);
+    img.src=url;
+  });
+}
+
 function addScannedPage(file, inputEl){
   const objectUrl=URL.createObjectURL(file); // for display only
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const dataUrl=e.target.result;
-    const b64=dataUrl.split(',')[1];
-    const mediaType=file.type||'image/jpeg';
-    scannedPages.push({objectUrl,b64,mediaType,name:file.name});
+  setStatus('Processing image...');
+  compressImage(file).then(compressed=>{
+    setStatus('');
+    if(!compressed){alert('Could not read image.');return;}
+    scannedPages.push({objectUrl,b64:compressed.b64,mediaType:compressed.mediaType,name:file.name});
     renderScanPreviews();
     document.getElementById('parse-btn').disabled=false;
     if(inputEl) inputEl.value='';
-  };
-  reader.onerror=()=>{ alert('Could not read image. Please try again.'); };
-  reader.readAsDataURL(file);
+  });
 }
 
 function removeScannedPage(idx){
@@ -228,11 +254,10 @@ function renderScanPreviews(){
 
 function setCartSchedImage(file, inputEl){
   const objectUrl=URL.createObjectURL(file);
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const dataUrl=e.target.result;
-    const b64=dataUrl.split(',')[1];
-    const mediaType=file.type||'image/jpeg';
+  compressImage(file).then(compressed=>{
+    if(!compressed){alert('Could not read image.');return;}
+    const b64=compressed.b64;
+    const mediaType=compressed.mediaType;
     cartSchedImage={objectUrl,b64,mediaType};
     // Show preview
     const preview=document.getElementById('cart-sched-preview');
