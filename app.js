@@ -165,31 +165,53 @@ function initSlots(){
     slotTypes[m]='cart';
     slotIntervals[m]=30;
   });
+  populateSplitSelectors();
   renderSlotTable();
 }
 
-function splitSlot(base30){
-  // Split a 30-min slot into two 15-min slots
-  const h1=base30, h2=base30+15;
-  slotIntervals[h1]=15;
-  slotIntervals[h2]=15;
-  slotCaps[h2]=slotCaps[h1]; // inherit capacity
-  slotTypes[h2]=slotTypes[h1]; // inherit type
-  // Rebuild SLOTS in order
+function populateSplitSelectors(){
+  ['split-start','split-end'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    const prev=sel.value;
+    sel.innerHTML='<option value="">None</option>';
+    BASE_SLOTS.forEach(m=>{
+      const o=document.createElement('option');
+      o.value=m;o.textContent=minsToStr(m);
+      sel.appendChild(o);
+    });
+    if(prev)sel.value=prev;
+  });
+}
+
+function applySplitRange(){
+  const startVal=document.getElementById('split-start').value;
+  const endVal=document.getElementById('split-end').value;
+  // Reset all to 30-min first
+  BASE_SLOTS.forEach(m=>{
+    slotIntervals[m]=30;
+    delete slotIntervals[m+15];
+    delete slotCaps[m+15];
+    delete slotTypes[m+15];
+  });
+  if(startVal&&endVal){
+    const s=parseInt(startVal),e=parseInt(endVal);
+    if(s<e){
+      for(let m=s;m<e;m+=30){
+        if(BASE_SLOTS.includes(m)){
+          slotIntervals[m]=15;
+          slotIntervals[m+15]=15;
+          slotCaps[m+15]=slotCaps[m];
+          slotTypes[m+15]=slotTypes[m];
+        }
+      }
+    }
+  }
   rebuildSlots();
   renderSlotTable();
 }
 
-function mergeSlot(base30){
-  // Merge two 15-min slots back into one 30-min slot
-  const h2=base30+15;
-  slotIntervals[base30]=30;
-  delete slotIntervals[h2];
-  delete slotCaps[h2];
-  delete slotTypes[h2];
-  rebuildSlots();
-  renderSlotTable();
-}
+// splitSlot/mergeSlot replaced by applySplitRange
 
 function rebuildSlots(){
   SLOTS=[];
@@ -365,6 +387,25 @@ Return a JSON array where each object has these exact keys:
 "csFloorCareSegments" (array of {start,end} for CS-Floor Care roles, or []).
 
 Rules: Multiple CS-Bag segments = use earliest start and latest end. Ignore handwriting. Start response with [ and end with ]. No markdown.`
+
+    // Validate that scanned pages look like a Daily Overview
+    setStatus('Checking scanned pages...');
+    const validatePrompt='Look at this image. Is it a retail store "Daily Overview" shift schedule? It should have columns for Associate name, Job class, Shift/Roles, and Meals. Answer only YES or NO.';
+    for(let pi=0;pi<scannedPages.length;pi++){
+      const vRes=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:10,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:scannedPages[pi].mediaType||'image/jpeg',data:scannedPages[pi].b64}},
+            {type:'text',text:validatePrompt}
+          ]}],_rawParse:true})});
+      if(vRes.ok){
+        const vData=await vRes.json();
+        const vTxt=((vData.content||[]).map(b=>b.text||'').join('')).trim().toUpperCase();
+        if(vTxt.startsWith('NO')){
+          throw new Error(`Page ${pi+1} doesn't look like a Daily Overview Schedule. Please make sure you're scanning the correct document.`);
+        }
+      }
+    }
 
     // Build content array from scanned images
     setStatus(`Reading ${scannedPages.length} page(s)...`);
@@ -679,21 +720,17 @@ function confirmSuggestedFec(name){
 // ── Slot table ────────────────────────────────────────────────────────────────
 function renderSlotTable(){
   const tbody=document.getElementById('slot-tbody');tbody.innerHTML='';
-  // Render by base 30-min slots
   for(let m=7*60;m<22*60;m+=30){
     if(slotIntervals[m]===15){
-      // Show two 15-min rows with merge button on first
-      [m, m+15].forEach((s,idx)=>{
+      [m, m+15].forEach(s=>{
         const tr=document.createElement('tr');
         tr.className='slot-15';
-        const mergeBtn=idx===0?`<button class="split-btn merge-btn" onclick="mergeSlot(${m})" title="Merge back to 30 min">⊖</button>`:'<span class="split-spacer"></span>';
         tr.innerHTML=`<td class="time-cell"><span class="slot-15-indicator">15</span>${minsToStr(s)}</td>
           <td><input type="number" min="0" max="10" value="${slotCaps[s]||0}" onchange="slotCaps[${s}]=parseInt(this.value)||0"></td>
           <td><select onchange="slotTypes[${s}]=this.value">
             <option value="cart"${slotTypes[s]==='cart'?' selected':''}>Cart</option>
             <option value="lot"${slotTypes[s]==='lot'?' selected':''}>Lot/Bag</option>
-          </select></td>
-          <td>${mergeBtn}</td>`;
+          </select></td>`;
         tbody.appendChild(tr);
       });
     } else {
@@ -703,8 +740,7 @@ function renderSlotTable(){
         <td><select onchange="slotTypes[${m}]=this.value">
           <option value="cart"${slotTypes[m]==='cart'?' selected':''}>Cart</option>
           <option value="lot"${slotTypes[m]==='lot'?' selected':''}>Lot/Bag</option>
-        </select></td>
-        <td><button class="split-btn" onclick="splitSlot(${m})" title="Split into 15-min slots">⊕</button></td>`;
+        </select></td>`;
       tbody.appendChild(tr);
     }
   }
@@ -723,6 +759,22 @@ function setAllType(){
 // ── Parse Cart Schedule Image ─────────────────────────────────────────────────
 async function parseCartScheduleImage(){
   try{
+    // Validate it's a cart service schedule
+    const cvRes=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:10,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:cartSchedImage.mediaType||'image/jpeg',data:cartSchedImage.b64}},
+          {type:'text',text:'Is this a "Cart Service" or "Express Schedule" with a Parking Lot column showing number of associates needed per time slot? Answer YES or NO only.'}
+        ]}],_rawParse:true})});
+    if(cvRes.ok){
+      const cvData=await cvRes.json();
+      const cvTxt=((cvData.content||[]).map(b=>b.text||'').join('')).trim().toUpperCase();
+      if(cvTxt.startsWith('NO')){
+        setStatus('');
+        alert('That image doesn\'t look like a Cart Service Schedule. The Cart Service Schedule slot config was not applied — you can set it manually in Step 4.');
+        return;
+      }
+    }
     const cartPrompt=`This is a Cart Service / Express Schedule printed form. Look at the "Parking Lot" column (third column).
 
 For EVERY row that has a time slot (e.g. "7:00 AM - 7:30 AM"), read the Parking Lot cell and return:
@@ -783,6 +835,7 @@ Example: [{"time":"7:00am","capacity":1,"type":"lot"},{"time":"7:30am","capacity
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 function buildSchedule(){
+  applySplitRange(); // apply any 15-min range settings first
   const fec1Name=document.getElementById('fec1-select').value;
   const fec1Start=timeInputToMins(document.getElementById('fec1-start').value);
   const fec1End=timeInputToMins(document.getElementById('fec1-end').value);

@@ -47,7 +47,7 @@
     <div id="step1-body">
 
       <div class="sub-step">
-        <div class="sub-step-title">Take a picture of each page of the Daily Overview Schedule <span class="sub-hint">(add as many pages as needed)</span></div>
+        <div class="sub-step-title">Take a picture of each page of the <strong>Daily Overview Schedule</strong> <span class="sub-hint">(add as many pages as needed)</span></div>
         
         <input type="file" id="scan-input" accept="image/*" capture="environment" style="display:none">
         <div id="scan-previews" style="margin-top:4px">
@@ -62,7 +62,7 @@
       </div>
 
       <div class="sub-step" style="margin-top:16px">
-        <div class="sub-step-title">Take a picture of the Cart Service Schedule <span class="sub-hint">(optional, you can manually edit required number of associates later)</span></div>
+        <div class="sub-step-title">Take a picture of the <strong>Cart Service Schedule</strong> <span class="sub-hint">(optional, you can manually edit required number of associates later)</span></div>
         
         <input type="file" id="cart-sched-input" accept="image/*" capture="environment" style="display:none">
         <div class="scan-thumbs" style="margin-top:4px">
@@ -72,6 +72,22 @@
           </button>
         </div>
       </div>
+
+      <div class="sub-step" style="margin-top:16px">
+        <div class="sub-step-title">15-Minute Scheduling <span class="sub-hint">(optional — specify a time range to schedule in 15-min intervals)</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+          <label style="font-size:13px;color:var(--muted)">From</label>
+          <select id="split-start" onchange="applySplitRange()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)">
+            <option value="">None</option>
+          </select>
+          <label style="font-size:13px;color:var(--muted)">To</label>
+          <select id="split-end" onchange="applySplitRange()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)">
+            <option value="">None</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:16px"></div>
 
       <button class="parse-btn" id="parse-btn" onclick="parsePDF()" disabled>
         <i class="ti ti-sparkles"></i> Build Today's Schedule
@@ -147,7 +163,7 @@
         <button class="sm-btn" onclick="setAllType()">Apply</button>
       </div>
       <table class="slot-table">
-        <thead><tr><th>Time</th><th>People</th><th>Type</th><th style="width:36px"></th></tr></thead>
+        <thead><tr><th>Time</th><th>People</th><th>Type</th></tr></thead>
         <tbody id="slot-tbody"></tbody>
       </table>
     </div>
