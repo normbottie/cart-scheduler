@@ -1125,17 +1125,17 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
     doc.setFont('helvetica','normal');doc.setFontSize(10);
     doc.setDrawColor(210,210,210);doc.setLineWidth(0.5);
     doc.line(COL_SW-4,y-3,COL_SW-4,y+ROW_H-3);
-    doc.setTextColor(120,120,120);doc.text(minsToStr(s.start),COL_TIME,y+ROW_H-5);
-    if(s.type==='lot'){doc.setTextColor(26,79,160);doc.text('Lot/Bag',COL_NUM,y+ROW_H-5);}
-    else{doc.setTextColor(0,0,0);doc.text(String(s.cap),COL_NUM,y+ROW_H-5);}
+    doc.setTextColor(120,120,120);doc.text(minsToStr(s.start),COL_TIME,y+ROW_H/2+3);
+    if(s.type==='lot'){doc.setTextColor(26,79,160);doc.text('Lot/Bag',COL_NUM,y+ROW_H/2+3);}
+    else{doc.setTextColor(0,0,0);doc.text(String(s.cap),COL_NUM,y+ROW_H/2+3);}
     doc.setTextColor(0,0,0);
     s.assigned.slice(0,MAX_A).forEach(function(a,ci){
-      doc.text(firstLast(a.name)+(a.fecOn?' *':a.isMgr?' \u2020':''),COL_A+ci*A_SUB_W,y+ROW_H-5);
+      doc.text(firstLast(a.name)+(a.fecOn?' *':a.isMgr?' \u2020':''),COL_A+ci*A_SUB_W,y+ROW_H/2+3);
     });
     if(s.sweep){
       doc.setTextColor(26,107,58);
       var sw=Array.isArray(s.sweep)?s.sweep:[s.sweep];
-      sw.slice(0,2).forEach(function(n,si){doc.text(firstLast(n),COL_SW+si*SW_SUB_W,y+ROW_H-5);});
+      sw.slice(0,2).forEach(function(n,si){doc.text(firstLast(n),COL_SW+si*SW_SUB_W,y+ROW_H/2+3);});
       doc.setTextColor(0,0,0);
     }
     y+=ROW_H;
