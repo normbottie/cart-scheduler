@@ -106,3 +106,6 @@ main{max-width:900px;margin:0 auto;padding:20px 16px}
 .auto-fec-row{font-size:12px;color:var(--muted);padding:3px 0;border-bottom:0.5px solid var(--border);}
 .auto-fec-row:last-child{border-bottom:none;}
 .auto-fec-tag{font-size:10px;background:#e8f0fe;color:#1a4fa0;border:1px solid #b8d0f5;border-radius:3px;padding:1px 5px;}
+
+/* ── Bigger collapse icons ── */
+.step-icon{font-size:18px;color:var(--muted);line-height:1;}

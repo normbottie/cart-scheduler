@@ -23,6 +23,22 @@ function firstLast(n){
   return p.length===1?n:p[0]+' '+p[p.length-1][0]+'.';
 }
 
+// ── Debug mode (bypasses AI, uses mock data) ─────────────────────────────────
+const DEBUG_MODE = false; // set to true to skip AI calls
+const MOCK_EMPLOYEES = [
+  {name:"Tony Lafayette",job:"fsc",cartStart:"6:45am",cartEnd:"1:00pm",mealStart:"9:00am",mealEnd:"9:30am",autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Mark Saleh",job:"fsc",cartStart:"8:00am",cartEnd:"2:00pm",mealStart:"10:00am",mealEnd:"10:30am",autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Alexis Bergman",job:"cashier",cartStart:"12:00pm",cartEnd:"3:00pm",mealStart:null,mealEnd:null,autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Mariah Dorvil",job:"fsc",cartStart:"10:00am",cartEnd:"6:30pm",mealStart:"2:30pm",mealEnd:"3:30pm",autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Norm Bottie",job:"csm",cartStart:null,cartEnd:null,mealStart:"10:00am",mealEnd:"11:00am",autoFecSegments:[{start:"11:00am",end:"1:00pm"}],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Hannah Lyons",job:"csm",cartStart:null,cartEnd:null,mealStart:"12:00pm",mealEnd:"1:00pm",autoFecSegments:[{start:"1:00pm",end:"4:00pm"}],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Athena Elbert",job:"css",cartStart:"6:30pm",cartEnd:"10:00pm",mealStart:null,mealEnd:null,autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Juan Rodriguez",job:"fsc",cartStart:"5:00pm",cartEnd:"10:00pm",mealStart:"7:30pm",mealEnd:"8:00pm",autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Layla Baker",job:"cashier",cartStart:"4:00pm",cartEnd:"8:00pm",mealStart:null,mealEnd:null,autoFecSegments:[],csCleaningSegments:[],csFloorCareSegments:[]},
+  {name:"Cliff Norwood",job:"fsc",cartStart:"3:00pm",cartEnd:"7:15pm",mealStart:null,mealEnd:null,autoFecSegments:[],csCleaningSegments:[{start:"11:00am",end:"2:00pm"}],csFloorCareSegments:[]},
+  {name:"Trent Eary",job:"fsc",cartStart:"3:15pm",cartEnd:"6:00pm",mealStart:null,mealEnd:null,autoFecSegments:[],csCleaningSegments:[{start:"6:45pm",end:"9:30pm"}],csFloorCareSegments:[{start:"9:30pm",end:"10:30pm"}]},
+];
+
 // ── Persistent no-carts list (localStorage) ───────────────────────────────────
 const PERM_KEY='cart-scheduler-permanent-no-carts';
 function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PERM_KEY)||'[]'));}catch(e){return new Set();}}
@@ -36,6 +52,7 @@ const SLOTS=[];for(let m=7*60;m<22*60;m+=30)SLOTS.push(m);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
+  checkTerms();
   initSlots();
   renderPermNoCartMenu();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
@@ -52,6 +69,18 @@ window.addEventListener('load',()=>{
     }
   });
 });
+
+// ── Terms agreement ──────────────────────────────────────────────────────────
+const TERMS_KEY='cart-scheduler-terms-accepted';
+function checkTerms(){
+  if(!localStorage.getItem(TERMS_KEY)){
+    document.getElementById('terms-modal').style.display='flex';
+  }
+}
+function acceptTerms(){
+  localStorage.setItem(TERMS_KEY,'1');
+  document.getElementById('terms-modal').style.display='none';
+}
 
 // ── Permanent no-cart menu ────────────────────────────────────────────────────
 function toggleMenu(){
@@ -134,7 +163,7 @@ function clearFile(){
   document.getElementById('file-chip').style.display='none';
   document.getElementById('parse-btn').disabled=true;
   employees=[];
-  ['assoc-section','config-section','slots-section','generate-wrap','results-section','sched-preview'].forEach(id=>{
+  ['step2','step3','step4','generate-wrap','step5','step6'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
   setStatus('');
@@ -147,6 +176,23 @@ async function parsePDF(){
   document.getElementById('parse-btn').disabled=true;
 
   try{
+    if(DEBUG_MODE){
+      setStatus('');
+      const now=new Date();
+      scheduleDate=`${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}/${now.getFullYear().toString().slice(-2)}`;
+      document.getElementById('sched-date').textContent=scheduleDate+'  [DEBUG]';
+      employees=MOCK_EMPLOYEES.map(e=>({...e,name:normalizeName(e.name)}));
+      excludeFromCarts=new Set([...permNoCart].filter(n=>employees.some(e=>e.name===n)));
+      excludeFromSweep=new Set();
+      closeStep('step1');
+      renderAssociates();renderFECOptions();
+      ['step2','step3','step4','generate-wrap'].forEach(id=>document.getElementById(id).style.display='block');
+      openStep('step2');openStep('step3');openStep('step4');
+      document.getElementById('step2').scrollIntoView({behavior:'smooth'});
+      document.getElementById('parse-btn').disabled=false;
+      return;
+    }
+
     const b64=await fileToB64(currentFile);
     const now=new Date();
     scheduleDate=`${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}/${now.getFullYear().toString().slice(-2)}`;
@@ -198,14 +244,11 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     closeStep('step1');
     renderAssociates();
     renderFECOptions();
-    openStep('step2');
-    openStep('step3');
-    openStep('step4');
-    document.getElementById('assoc-section').style.display='block';
-    document.getElementById('config-section').style.display='block';
-    document.getElementById('slots-section').style.display='block';
-    document.getElementById('generate-wrap').style.display='block';
-    document.getElementById('assoc-section').scrollIntoView({behavior:'smooth'});
+    ['step2','step3','step4','generate-wrap'].forEach(id=>{
+      document.getElementById(id).style.display='block';
+    });
+    openStep('step2');openStep('step3');openStep('step4');
+    document.getElementById('step2').scrollIntoView({behavior:'smooth'});
   }catch(err){
     setStatus('Error: '+err.message);
     document.getElementById('parse-btn').disabled=false;
