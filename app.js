@@ -1092,14 +1092,21 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
   const SWEEP_RIGHT=PW-MARGIN,SWEEP_W=132,SW_SUB_W=66;
   const COL_SW=SWEEP_RIGHT-SWEEP_W;
   const MID=ROW_H/2+2;
+  const TITLE_H=20;
   const drawHeader=y=>{
-    doc.setFillColor(224,222,216);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
+    // Dark title banner
+    doc.setFillColor(50,50,50);doc.rect(MARGIN,y,PW-2*MARGIN,TITLE_H,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(255,255,255);
+    doc.text('Cart Schedule '+scheduleDate,PW/2,y+TITLE_H/2+4,{align:'center'});
+    y+=TITLE_H;
+    // Column headers
+    doc.setFillColor(200,198,192);doc.rect(MARGIN,y,PW-2*MARGIN,ROW_H,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(60,60,60);
     doc.text('Time',COL_TIME,y+MID);doc.text('#',COL_NUM,y+MID);
     doc.text('Associate(s)',COL_A,y+MID);doc.text('Store Sweep',COL_SW,y+MID);
-    doc.setDrawColor(200,200,200);doc.setLineWidth(0.5);
-    doc.line(COL_SW-4,y-3,COL_SW-4,y+ROW_H-3);
-    doc.setTextColor(0,0,0);return y+ROW_H+2;
+    doc.setDrawColor(180,178,172);doc.setLineWidth(0.5);
+    doc.line(COL_SW-4,y,COL_SW-4,y+ROW_H);
+    doc.setTextColor(0,0,0);return y+ROW_H+1;
   };
   const notes=[];let hasFec=false,hasMgr=false;
   schedule.forEach(s=>{s.assigned.forEach(a=>{if(a.fecOn)hasFec=true;if(a.isMgr)hasMgr=true;});});
@@ -1110,12 +1117,9 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
   if(hasMgr)notes.push('\u2020 CS Team Leader/Manager placed on carts only where no other associate was available');
   const FOOTER_SPACE=notes.length*9+30;
   const newPage=()=>{
-    doc.addPage();let py=40;
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(150,150,150);
-    doc.text('Cart Schedule '+scheduleDate+' (continued)',MARGIN,py);
-    doc.setTextColor(0,0,0);py+=14;return drawHeader(py);
+    doc.addPage();
+    return drawHeader(MARGIN);
   };
-  // No separate title — title goes in the chart header row itself
   let y=MARGIN;
   y=drawHeader(y);
   schedule.forEach(function(s,idx){
