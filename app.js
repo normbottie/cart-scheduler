@@ -246,7 +246,7 @@ function renderScanPreviews(){
     <div class="scan-thumb">
       <img src="${p.objectUrl}" alt="Page ${i+1}">
       <div class="scan-thumb-label">Page ${i+1}</div>
-      <button class="scan-thumb-rm" onclick="removeScannedPage(${i})">✕</button>
+      <button class="scan-thumb-rm" onclick="removeScannedPage(${i})">X</button>
     </div>
   `).join('');
 }
@@ -258,7 +258,7 @@ function setCartSchedImage(file, inputEl){
     cartSchedImage={objectUrl,b64:compressed.b64,mediaType:compressed.mediaType};
     const thumbs=document.getElementById('cart-sched-thumbs');
     const addBtn=document.getElementById('cart-sched-add-btn');
-    thumbs.innerHTML=`<div class="scan-thumb"><img src="${objectUrl}" alt="Cart schedule"><div class="scan-thumb-label">Cart Schedule</div><button class="scan-thumb-rm" onclick="clearCartSched()">✕</button></div>`;
+    thumbs.innerHTML=`<div class="scan-thumb"><img src="${objectUrl}" alt="Cart schedule"><div class="scan-thumb-label">Cart Schedule</div><button class="scan-thumb-rm" onclick="clearCartSched()">X</button></div>`;
     if(addBtn) addBtn.style.display='none'; // hide add button once scanned
     if(inputEl) inputEl.value='';
   });
@@ -471,8 +471,10 @@ function renderFECOptions(){
     changeBtn.onclick=()=>{document.getElementById('fec2-select').value='';fecSuggest.style.display='none';};
     btnRow.appendChild(confirmBtn);btnRow.appendChild(changeBtn);
     sugBox.appendChild(btnRow);fecSuggest.appendChild(sugBox);
+    fecSuggest.style.display='block';
+  } else {
+    fecSuggest.style.display='none';
   }
-  
   const seen=new Set();
   employees.forEach(e=>{
     if(seen.has(e.name))return;seen.add(e.name);
@@ -729,8 +731,14 @@ function buildSchedule(){
     const inPmClean=pmCleanSegs.some(s=>ss>=s.cs&&ss<s.ce);
     const inF1sw=isFecWin(fec1Name,ss,fec1Start,fec1End);
     const inF2sw=isFecWin(fec2Name,ss,fec2Start,fec2End);
-    const pool=state.filter(e=>{
-      if(!['fsc'].includes(e.job))return false; // only FSC for sweep
+
+    // Check if AM cleaner is available and on their cleaning shift
+    const amCleanerEntry=cleanersList.length>0?cleanersList[0]:null;
+    const amCleanerSegs=amCleanerEntry?state.find(e=>e.name===amCleanerEntry.name)?.cleanSegs||[]:[];
+    const amInClean=amCleanerEntry&&amCleanerSegs.some(s=>ss>=s.cs&&ss<s.ce);
+
+    const isEligible=(e)=>{
+      if(!['fsc'].includes(e.job))return false;
       if(e.cartStart===null||e.cartStart>ss||e.cartEnd<se)return false;
       if(isOnMeal(e,ss,se))return false;
       if(cartNames.has(e.name))return false;
@@ -740,7 +748,16 @@ function buildSchedule(){
       if(inF1sw&&e.name===fec1Name)return false;
       if(inF2sw&&e.name===fec2Name)return false;
       return true;
-    });
+    };
+
+    // Priority 1: AM cleaner during their cleaning hours
+    if(amCleanerEntry&&amInClean){
+      const amEmp=state.find(e=>e.name===amCleanerEntry.name&&isEligible(e));
+      if(amEmp)return amEmp.name;
+    }
+
+    // Priority 2: everyone else by fewest sweeps
+    const pool=state.filter(e=>isEligible(e));
     if(!pool.length)return null;
     pool.sort((a,b)=>(sweepCounts[a.name]||0)-(sweepCounts[b.name]||0)||a.total-b.total);
     return pool[0].name;

@@ -143,5 +143,38 @@ main{max-width:900px;margin:0 auto;padding:20px 16px}
 #scan-thumbs-wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin-top:6px;}
 #scan-thumbs{display:flex;flex-wrap:wrap;gap:8px;}
 
+/* ── No text selection ── */
+body,main,header,.step,.card{
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  user-select:none;
+}
+input,textarea,select{
+  -webkit-user-select:text;
+  user-select:text;
+}
+
+/* ── Disable double-tap zoom via touch-action ── */
+*{touch-action:manipulation;}
+
+/* ── Perm no-carts menu overflow fix ── */
+#perm-menu{width:min(280px,90vw);}
+.bulk-row,.perm-add-row{flex-wrap:wrap;}
+#perm-input{min-width:0;font-size:16px;} /* 16px prevents iOS zoom */
+
+/* ── FEC time inputs mobile ── */
+.fec-box{overflow:hidden;}
+.fec-section{gap:8px;}
+.fec-box select,.fec-box input[type=time]{
+  width:100%;min-width:0;font-size:16px; /* 16px prevents iOS zoom */
+}
+
+/* ── Capital X on thumbnail remove buttons ── */
+.scan-thumb-rm{
+  font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  line-height:1;padding:0;
+}
+
+/* ── Sub-hint text ── */
 .sub-hint{font-size:11px;color:var(--muted);font-weight:400;}
-.scan-thumb-rm{display:flex!important;align-items:center;justify-content:center;line-height:1;padding:0;}
