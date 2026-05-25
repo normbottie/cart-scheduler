@@ -511,10 +511,12 @@ function buildSchedule(){
 // ── Render results ────────────────────────────────────────────────────────────
 function renderResults(){
   const{schedule,slotCounts,fec1Name,fec2Name}=lastSchedule;
-  document.getElementById('results-section').style.display='block';
-  document.getElementById('sched-preview').style.display='block';
-  openStep('step5');openStep('step6');
-  document.getElementById('results-section').scrollIntoView({behavior:'smooth'});
+  // Show and open result steps
+  ['step5','step6'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.style.display='block';openStep(id);}
+  });
+  document.getElementById('step5').scrollIntoView({behavior:'smooth'});
 
   const tbody=document.getElementById('counts-tbody');tbody.innerHTML='';
   const seen=new Set();
