@@ -59,6 +59,7 @@ let employees=[], scheduleDate='', slotCaps={}, slotTypes={}, lastSchedule=null;
 let excludeFromCarts=new Set(), excludeFromSweep=new Set();
 const SLOTS=[];for(let m=7*60;m<22*60;m+=30)SLOTS.push(m);
 let scannedPages=[]; // array of {dataUrl, b64, name}
+let cartSchedImage=null; // single cart service schedule image
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
@@ -72,6 +73,11 @@ window.addEventListener('load',()=>{
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
   // Close menu on outside click
+  document.getElementById('cart-sched-input').addEventListener('change',e=>{
+    if(e.target.files[0]) setCartSchedImage(e.target.files[0]);
+    e.target.value='';
+  });
+
   document.getElementById('scan-input').addEventListener('change',e=>{
     if(e.target.files[0]) addScannedPage(e.target.files[0]);
     e.target.value=''; // reset so same file can be re-selected
@@ -171,6 +177,8 @@ function setFile(f){
 function clearFile(){
   currentFile=null;
   scannedPages=[];
+  cartSchedImage=null;
+  clearCartSched();
   renderScanPreviews();
   document.getElementById('drop-zone').style.display='block';
   document.getElementById('upload-divider') && (document.getElementById('upload-divider').style.display='');
@@ -234,9 +242,35 @@ function renderScanPreviews(){
   addBtn.style.display='flex';
 }
 
+function setCartSchedImage(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const dataUrl=e.target.result;
+    const b64=dataUrl.split(',')[1];
+    const mediaType=file.type||'image/jpeg';
+    cartSchedImage={dataUrl,b64,mediaType};
+    // Show preview
+    const preview=document.getElementById('cart-sched-preview');
+    const thumbs=document.getElementById('cart-sched-thumbs');
+    preview.style.display='block';
+    thumbs.innerHTML=`<div class="scan-thumb">
+      <img src="${dataUrl}" alt="Cart schedule">
+      <div class="scan-thumb-label">Cart Schedule</div>
+      <button class="scan-thumb-rm" onclick="clearCartSched()">✕</button>
+    </div>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearCartSched(){
+  cartSchedImage=null;
+  document.getElementById('cart-sched-preview').style.display='none';
+  document.getElementById('cart-sched-thumbs').innerHTML='';
+}
+
 // ── Parse PDF ─────────────────────────────────────────────────────────────────
 async function parsePDF(){
-  if(!currentFile && scannedPages.length===0)return;
+  if(scannedPages.length===0)return;
   setStatus('Preparing...');
   document.getElementById('parse-btn').disabled=true;
 
@@ -260,10 +294,6 @@ async function parsePDF(){
 
     const now=new Date();
     scheduleDate=`${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}/${now.getFullYear().toString().slice(-2)}`;
-    if(currentFile){
-      const dm=currentFile.name.match(/(\d{1,2})[_\-\/](\d{1,2})[_\-\/](\d{2,4})/);
-      if(dm) scheduleDate=`${dm[1].padStart(2,'0')}/${dm[2].padStart(2,'0')}/${dm[3].slice(-2)}`;
-    }
     document.getElementById('sched-date').textContent=scheduleDate;
 
     setStatus('Analyzing with AI...');
@@ -283,23 +313,12 @@ For each qualifying associate return:
 
 Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a valid JSON array, no markdown.`;
 
-    // Build content array — PDF or images
-    let contentArr;
-    if(scannedPages.length>0){
-      // Images from camera - interleave with text for multi-page context
-      setStatus(`Analyzing ${scannedPages.length} scanned page(s) with AI...`);
-      contentArr=[
-        {type:'text',text:`This is a ${scannedPages.length}-page retail Daily Overview shift schedule. Each image is one page. ${prompt}`},
-        ...scannedPages.map((p,i)=>({type:'image',source:{type:'base64',media_type:p.mediaType||'image/jpeg',data:p.b64}})),
-      ];
-    } else {
-      // PDF upload
-      const b64=await fileToB64(currentFile);
-      contentArr=[
-        {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-        {type:'text',text:prompt}
-      ];
-    }
+    // Build content array from scanned images
+    setStatus(`Reading ${scannedPages.length} page(s)...`);
+    const contentArr=[
+      {type:'text',text:`This is a ${scannedPages.length}-page retail Daily Overview shift schedule. Each image is one page.\n\n${prompt}`},
+      ...scannedPages.map(p=>({type:'image',source:{type:'base64',media_type:p.mediaType||'image/jpeg',data:p.b64}})),
+    ];
 
     const res=await fetch(WORKER_URL,{
       method:'POST',
@@ -318,6 +337,12 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
 
     // Normalize names
     employees=data.employees.map(e=>({...e,name:normalizeName(e.name)}));
+
+    // Parse cart schedule image if provided
+    if(cartSchedImage){
+      setStatus('Reading cart schedule...');
+      await parseCartScheduleImage();
+    }
     excludeFromCarts=new Set([...permNoCart].filter(n=>employees.some(e=>e.name===n)));
     excludeFromSweep=new Set();
 
@@ -453,6 +478,71 @@ function renderSlotTable(){
 }
 function setAllCap(){const v=parseInt(document.getElementById('bulk-cap').value)||1;SLOTS.forEach(m=>{slotCaps[m]=v;});renderSlotTable();}
 function setAllType(){const tp=document.getElementById('bulk-type').value;SLOTS.forEach(m=>{slotTypes[m]=tp;});renderSlotTable();}
+
+// ── Parse Cart Schedule Image ─────────────────────────────────────────────────
+async function parseCartScheduleImage(){
+  try{
+    const cartPrompt=`This is a Cart Service / Express Schedule. Read the "Parking Lot" column for each time slot.
+
+For each 30-minute time slot from 7:00 AM to 10:00 PM, return:
+- time: start time in "H:MMam/pm" format e.g. "7:00am", "1:30pm"
+- capacity: the number shown in the Parking Lot column (integer). If blank or 0, use 0.
+- type: "lot" if the cell says "lot/bag" or "lot bag", otherwise "cart"
+
+Ignore the Express column, Names column, and any handwriting.
+Return ONLY a valid JSON array like: [{"time":"7:00am","capacity":1,"type":"lot"},...]
+No markdown, no explanation.`;
+
+    const res=await fetch(WORKER_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:2000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:cartSchedImage.mediaType||'image/jpeg',data:cartSchedImage.b64}},
+          {type:'text',text:cartPrompt}
+        ]}]
+      })
+    });
+    if(!res.ok)return;
+    const data=await res.json();
+    if(!data.success||!data.employees)return; // worker returns employees key for any parse
+
+    // Actually the worker parses JSON generically - re-fetch raw
+    // Use a direct approach: send to worker and get back slot data
+    const res2=await fetch(WORKER_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:2000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:cartSchedImage.mediaType||'image/jpeg',data:cartSchedImage.b64}},
+          {type:'text',text:cartPrompt}
+        ]}],
+        _rawParse:true
+      })
+    });
+    const data2=await res2.json();
+    const rawTxt=(data2.content||[]).map(b=>b.text||'').join('');
+    const s=rawTxt.indexOf('['),e=rawTxt.lastIndexOf(']');
+    if(s===-1||e<s)return;
+    const slots=JSON.parse(rawTxt.substring(s,e+1));
+    // Apply to slotCaps and slotTypes
+    slots.forEach(slot=>{
+      const mins=timeToMins(slot.time);
+      if(mins!==null&&SLOTS.includes(mins)){
+        slotCaps[mins]=parseInt(slot.capacity)||0;
+        slotTypes[mins]=slot.type==='lot'?'lot':'cart';
+      }
+    });
+    renderSlotTable();
+    console.log('Cart schedule applied:',slots.length,'slots updated');
+  }catch(e){
+    console.warn('Cart schedule parse failed:',e.message);
+  }
+}
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 function buildSchedule(){
@@ -604,7 +694,7 @@ function renderResults(){
     const xc=excludeFromCarts.has(e.name)||permNoCart.has(e.name);
     const xs=excludeFromSweep.has(e.name);
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${e.name}${isFec?`<span class="badge badge-fec">FEC</span>`:''}${isAFec?`<span class="badge badge-autofec">Auto-FEC</span>`:''}${isMgr?`<span class="badge badge-cstl">CSTL</span>`:''}${xc?`<span class="badge badge-excluded">No carts</span>`:''}${xs?`<span class="badge badge-excluded">No sweep</span>`:''}</td>
+    tr.innerHTML=`<td>${e.name}${isFec?`<span class="badge badge-fec">FEC</span>`:''}${isAFec?`<span class="badge badge-autofec">Auto-FEC</span>`:''}${isMgr?`<span class="badge badge-cstl">${['cstl'].includes(e.job)?'CS Team Leader':'Manager'}</span>`:''}${xc?`<span class="badge badge-excluded">No carts</span>`:''}${xs?`<span class="badge badge-excluded">No sweep</span>`:''}</td>
     <td style="font-size:11px;color:var(--muted)">${e.cartStart?`${e.cartStart}–${e.cartEnd}`:'—'}</td>
     <td style="font-size:11px;color:var(--muted)">${e.mealStart?`${e.mealStart}–${e.mealEnd}`:'—'}</td>
     <td style="text-align:center;font-weight:500">${slotCounts[e.name]||0}</td>`;

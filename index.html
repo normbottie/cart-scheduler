@@ -47,38 +47,43 @@
       <span class="step-icon" id="step1-icon">▾</span>
     </div>
     <div id="step1-body">
-      <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-        <i class="ti ti-file-upload"></i>
-        <strong>Click to upload or drag &amp; drop</strong>
-        <p>Daily Overview PDF from the scheduling system</p>
-      </div>
-      <input type="file" id="file-input" accept=".pdf" style="display:none">
 
-      <div class="upload-divider"><span>or</span></div>
-
-      <div class="scan-zone">
-        <button class="scan-btn" onclick="document.getElementById('scan-input').click()">
-          <i class="ti ti-camera"></i> Scan Page
-        </button>
-        <span class="scan-hint">Scan one page at a time — add as many as needed</span>
-        <input type="file" id="scan-input" accept="image/*" capture="environment" style="display:none">
-      </div>
-
-      <div id="scan-previews" style="display:none">
-        <div class="scan-preview-label">Scanned pages: <span id="scan-count">0</span></div>
-        <div id="scan-thumbs" class="scan-thumbs"></div>
-        <button class="scan-add-btn" id="scan-add-btn" onclick="document.getElementById('scan-input').click()">
-          <i class="ti ti-plus"></i> Add another page
-        </button>
+      <div class="sub-step">
+        <div class="sub-step-title"><span class="sub-step-num">A</span> Daily Overview Schedule</div>
+        <p class="hint" style="margin-bottom:10px">Take a photo of each page of the Daily Overview. This tells us who is working and when.</p>
+        <div class="scan-zone">
+          <button class="scan-btn" onclick="document.getElementById('scan-input').click()">
+            <i class="ti ti-camera"></i> Scan Page
+          </button>
+          <span class="scan-hint">Scan one page at a time — add as many pages as needed</span>
+          <input type="file" id="scan-input" accept="image/*" capture="environment" style="display:none">
+        </div>
+        <div id="scan-previews" style="display:none;margin-top:10px">
+          <div class="scan-preview-label">Pages scanned: <span id="scan-count">0</span></div>
+          <div id="scan-thumbs" class="scan-thumbs"></div>
+          <button class="scan-add-btn" id="scan-add-btn" onclick="document.getElementById('scan-input').click()">
+            <i class="ti ti-plus"></i> Add another page
+          </button>
+        </div>
       </div>
 
-      <div class="file-chip" id="file-chip" style="display:none">
-        <i class="ti ti-file-text" style="font-size:16px;color:var(--muted)"></i>
-        <span id="file-chip-name"></span>
-        <button class="rm" onclick="clearFile()">✕</button>
+      <div class="sub-step" style="margin-top:16px">
+        <div class="sub-step-title"><span class="sub-step-num">B</span> Cart Service Schedule <span style="font-size:11px;color:var(--muted);font-weight:400">(optional — auto-fills slot config)</span></div>
+        <p class="hint" style="margin-bottom:10px">Take a photo of the Cart Service / Express Schedule. We'll read the Parking Lot column to auto-fill how many associates are needed per slot and which slots are Lot/Bag.</p>
+        <div class="scan-zone">
+          <button class="scan-btn" onclick="document.getElementById('cart-sched-input').click()">
+            <i class="ti ti-camera"></i> Scan Cart Schedule
+          </button>
+          <input type="file" id="cart-sched-input" accept="image/*" capture="environment" style="display:none">
+        </div>
+        <div id="cart-sched-preview" style="display:none;margin-top:10px">
+          <div class="scan-preview-label">Cart schedule scanned ✓</div>
+          <div id="cart-sched-thumbs" class="scan-thumbs"></div>
+        </div>
       </div>
+
       <button class="parse-btn" id="parse-btn" onclick="parsePDF()" disabled>
-        <i class="ti ti-sparkles"></i> Parse with AI
+        <i class="ti ti-sparkles"></i> Build Today's Schedule
       </button>
       <div class="status" id="status" style="display:none">
         <div class="spinner"></div>
