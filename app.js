@@ -108,12 +108,13 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
 
-    const raw=data.content.map(b=>{
-      let txt=b.text||'';
-      // If the text is a JSON-encoded string, decode it
-      if(txt.startsWith('"')&&txt.endsWith('"')){try{txt=JSON.parse(txt);}catch(e){}}
-      return txt;
-    }).join('');
+    const rawTxt=data.content.map(b=>b.text||'').join('');
+    // The text content is itself a JSON-encoded string - parse it directly
+    let raw;
+    try{
+      const decoded=JSON.parse(rawTxt);
+      raw=typeof decoded==='string'?decoded:rawTxt;
+    }catch(e){ raw=rawTxt; }
     // Strip any markdown fences and find the JSON array
     let clean=raw.replace(/```json|```/gi,'').replace(/^[\s\S]*?(?=\[)/,'').trim();
     // Extract just the JSON array if there's surrounding text
