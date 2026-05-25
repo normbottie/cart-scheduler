@@ -256,22 +256,13 @@ function setCartSchedImage(file, inputEl){
   const objectUrl=URL.createObjectURL(file);
   compressImage(file).then(compressed=>{
     if(!compressed){alert('Could not read image.');return;}
-    const b64=compressed.b64;
-    const mediaType=compressed.mediaType;
-    cartSchedImage={objectUrl,b64,mediaType};
-    // Show preview
+    cartSchedImage={objectUrl,b64:compressed.b64,mediaType:compressed.mediaType};
     const preview=document.getElementById('cart-sched-preview');
     const thumbs=document.getElementById('cart-sched-thumbs');
     preview.style.display='block';
-    thumbs.innerHTML=`<div class="scan-thumb">
-      <img src="${objectUrl}" alt="Cart schedule">
-      <div class="scan-thumb-label">Cart Schedule</div>
-      <button class="scan-thumb-rm" onclick="clearCartSched()">✕</button>
-    </div>`;
-  };
-  reader.onerror=()=>{ alert('Could not read image.'); };
-  reader.readAsDataURL(file);
-  if(inputEl) setTimeout(()=>inputEl.value='', 100);
+    thumbs.innerHTML=`<div class="scan-thumb"><img src="${objectUrl}" alt="Cart schedule"><div class="scan-thumb-label">Cart Schedule</div><button class="scan-thumb-rm" onclick="clearCartSched()">✕</button></div>`;
+    if(inputEl) inputEl.value='';
+  });
 }
 
 function clearCartSched(){
