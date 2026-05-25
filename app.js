@@ -251,18 +251,20 @@ function setCartSchedImage(file, inputEl){
   compressImage(file).then(compressed=>{
     if(!compressed){alert('Could not read image.');return;}
     cartSchedImage={objectUrl,b64:compressed.b64,mediaType:compressed.mediaType};
-    const preview=document.getElementById('cart-sched-preview');
     const thumbs=document.getElementById('cart-sched-thumbs');
-    preview.style.display='block';
+    const addBtn=document.getElementById('cart-sched-add-btn');
     thumbs.innerHTML=`<div class="scan-thumb"><img src="${objectUrl}" alt="Cart schedule"><div class="scan-thumb-label">Cart Schedule</div><button class="scan-thumb-rm" onclick="clearCartSched()">✕</button></div>`;
+    if(addBtn) addBtn.style.display='none'; // hide add button once scanned
     if(inputEl) inputEl.value='';
   });
 }
 
 function clearCartSched(){
   cartSchedImage=null;
-  document.getElementById('cart-sched-preview').style.display='none';
-  document.getElementById('cart-sched-thumbs').innerHTML='';
+  const thumbs=document.getElementById('cart-sched-thumbs');
+  const addBtn=document.getElementById('cart-sched-add-btn');
+  if(thumbs) thumbs.innerHTML='';
+  if(addBtn) addBtn.style.display='flex'; // show add button again
 }
 
 // ── Parse PDF ─────────────────────────────────────────────────────────────────
