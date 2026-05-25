@@ -308,9 +308,16 @@ IMPORTANT: Start your entire response with [ and end with ]. No markdown, no exp
 
     // Build content array from scanned images
     setStatus(`Reading ${scannedPages.length} page(s)...`);
+    // Force supported media types - Claude supports jpeg, png, gif, webp
+    const supportedTypes=['image/jpeg','image/png','image/gif','image/webp'];
     const contentArr=[
       {type:'text',text:`This is a ${scannedPages.length}-page retail Daily Overview shift schedule. Each image is one page.\n\n${prompt}`},
-      ...scannedPages.map(p=>({type:'image',source:{type:'base64',media_type:p.mediaType||'image/jpeg',data:p.b64}})),
+      ...scannedPages.map(p=>{
+        let mt=p.mediaType||'image/jpeg';
+        if(!supportedTypes.includes(mt)) mt='image/jpeg';
+        console.log('Sending image with media_type:',mt,'b64 length:',p.b64.length);
+        return {type:'image',source:{type:'base64',media_type:mt,data:p.b64}};
+      }),
     ];
 
     const res=await fetch(WORKER_URL,{
