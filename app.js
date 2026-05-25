@@ -318,7 +318,10 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     if(!res.ok){let e='';try{e=await res.text();}catch(x){}throw new Error(`Worker error ${res.status}: ${e}`);}
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    if(!data.success) throw new Error('Could not parse PDF response: '+(data.raw||'unknown error'));
+    if(!data.success){
+      console.error('Worker response:', JSON.stringify(data).substring(0,500));
+      throw new Error('AI could not read the schedule: '+(data.raw?data.raw.substring(0,200):'unknown error'));
+    }
 
     // Normalize names
     employees=data.employees.map(e=>({...e,name:normalizeName(e.name)}));
