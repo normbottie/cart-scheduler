@@ -50,7 +50,7 @@
 
       <div class="sub-step">
         <div class="sub-step-title"><span class="sub-step-num">A</span> Daily Overview Schedule</div>
-        <p class="hint" style="margin-bottom:10px">Take a photo of each page of the Daily Overview. This tells us who is working and when.</p>
+        
         <div class="scan-zone">
           <button class="scan-btn" onclick="document.getElementById('scan-input').click()">
             <i class="ti ti-camera"></i> Scan Page
@@ -61,15 +61,15 @@
         <div id="scan-previews" style="display:none;margin-top:10px">
           <div class="scan-preview-label">Pages scanned: <span id="scan-count">0</span></div>
           <div id="scan-thumbs" class="scan-thumbs"></div>
-          <button class="scan-add-btn" id="scan-add-btn" onclick="document.getElementById('scan-input').click()">
-            <i class="ti ti-plus"></i> Add another page
+          <button class="scan-thumb-add" id="scan-add-btn" onclick="document.getElementById('scan-input').click()">
+            <i class="ti ti-plus"></i><span>Add page</span>
           </button>
         </div>
       </div>
 
       <div class="sub-step" style="margin-top:16px">
-        <div class="sub-step-title"><span class="sub-step-num">B</span> Cart Service Schedule <span style="font-size:11px;color:var(--muted);font-weight:400">(optional — auto-fills slot config)</span></div>
-        <p class="hint" style="margin-bottom:10px">Take a photo of the Cart Service / Express Schedule. We'll read the Parking Lot column to auto-fill how many associates are needed per slot and which slots are Lot/Bag.</p>
+        <div class="sub-step-title"><span class="sub-step-num">B</span> Cart Service Schedule <span style="font-size:11px;color:var(--muted);font-weight:400">(optional, you can manually edit required associates)</span></div>
+        
         <div class="scan-zone">
           <button class="scan-btn" onclick="document.getElementById('cart-sched-input').click()">
             <i class="ti ti-camera"></i> Scan Cart Schedule
@@ -96,7 +96,7 @@
   <div class="step" id="step2" style="display:none">
     <div class="step-header" onclick="collapseStep('step2')">
       <span class="step-num">2</span>
-      <span class="step-label">Associates found</span>
+      <span class="step-label">Associates found <span class="expand-hint">— tap to edit</span></span>
       <span class="step-icon" id="step2-icon">▾</span>
     </div>
     <div id="step2-body">
@@ -114,18 +114,18 @@
     </div>
     <div id="step3-body">
       <div id="auto-fec-callout" style="display:none;margin-bottom:12px;padding:10px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)"></div>
-      <div id="fec-suggestion" style="display:none;margin-bottom:12px"></div>
+      <div id="fec-suggestion" style="display:none;margin-bottom:10px"></div>
       <div class="fec-section">
         <div class="fec-box">
-          <label>FEC</label>
+          <label>Day FEC</label>
           <select id="fec1-select"></select>
           <label>From</label>
           <input type="time" id="fec1-start" value="11:00">
           <label>To</label>
           <input type="time" id="fec1-end" value="18:00">
         </div>
-        <div class="fec-box">
-          <label>Closing FEC</label>
+        <div class="fec-box" style="border:2px solid var(--accent);border-radius:var(--radius)">
+          <label style="font-weight:600;color:var(--text)">Closing FEC</label>
           <select id="fec2-select"></select>
           <label>From</label>
           <input type="time" id="fec2-start" value="18:00">
@@ -140,7 +140,7 @@
   <div class="step" id="step4" style="display:none">
     <div class="step-header" onclick="collapseStep('step4')">
       <span class="step-num">4</span>
-      <span class="step-label">Slot configuration (7:00 AM – 10:00 PM)</span>
+      <span class="step-label">Slot configuration <span class="expand-hint">— tap to edit</span></span>
       <span class="step-icon" id="step4-icon">▾</span>
     </div>
     <div id="step4-body">
@@ -172,7 +172,7 @@
   <div class="step" id="step5" style="display:none">
     <div class="step-header" onclick="collapseStep('step5')">
       <span class="step-num">5</span>
-      <span class="step-label">Shift counts</span>
+      <span class="step-label">Shift counts <span class="expand-hint">— tap to view</span></span>
       <span class="step-icon" id="step5-icon">▾</span>
     </div>
     <div id="step5-body">
@@ -189,7 +189,7 @@
   <div class="step" id="step6" style="display:none">
     <div class="step-header" onclick="collapseStep('step6')">
       <span class="step-num">6</span>
-      <span class="step-label">Schedule preview</span>
+      <span class="step-label">Schedule preview <span class="expand-hint">— tap to view</span></span>
       <span class="step-icon" id="step6-icon">▾</span>
     </div>
     <div id="step6-body">

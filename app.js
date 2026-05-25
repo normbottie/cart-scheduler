@@ -181,7 +181,7 @@ function clearFile(){
 }
 
 // ── Scan functions ───────────────────────────────────────────────────────────
-async function compressImage(file, maxWidth=1600, quality=0.7){
+async function compressImage(file, maxWidth=2400, quality=0.92){
   return new Promise((resolve)=>{
     const img=new Image();
     const url=URL.createObjectURL(file);
@@ -289,7 +289,7 @@ async function parsePDF(){
       closeStep('step1');
       renderAssociates();renderFECOptions();
       ['step2','step3','step4','generate-wrap'].forEach(id=>document.getElementById(id).style.display='block');
-      openStep('step2');openStep('step3');openStep('step4');
+      closeStep('step2');openStep('step3');closeStep('step4');
       document.getElementById('step2').scrollIntoView({behavior:'smooth'});
       document.getElementById('parse-btn').disabled=false;
       return;
@@ -372,7 +372,7 @@ IMPORTANT: Start your entire response with [ and end with ]. No markdown, no exp
     ['step2','step3','step4','generate-wrap'].forEach(id=>{
       document.getElementById(id).style.display='block';
     });
-    openStep('step2');openStep('step3');openStep('step4');
+    closeStep('step2');openStep('step3');closeStep('step4');
     document.getElementById('step2').scrollIntoView({behavior:'smooth'});
   }catch(err){
     setStatus('Error: '+err.message);
