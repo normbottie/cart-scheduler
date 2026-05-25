@@ -110,7 +110,10 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
 
     const parsed2=typeof data==='string'?JSON.parse(data):data;
     const rawText=(parsed2.content||[]).map(b=>b.text||'').join('');
-    const raw=rawText.replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\"/g,'"');
+    // rawText may be a JSON-encoded string itself - try parsing it
+    let raw;
+    try{ raw=JSON.parse(rawText); if(typeof raw!=='string') raw=rawText; }
+    catch(e){ raw=rawText; }
     // Strip any markdown fences and find the JSON array
     let clean=raw.replace(/```json|```/gi,'').replace(/^[\s\S]*?(?=\[)/,'').trim();
     // Extract just the JSON array if there's surrounding text
