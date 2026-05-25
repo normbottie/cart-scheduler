@@ -53,13 +53,32 @@
         <p>Daily Overview PDF from the scheduling system</p>
       </div>
       <input type="file" id="file-input" accept=".pdf" style="display:none">
+
+      <div class="upload-divider"><span>or</span></div>
+
+      <div class="scan-zone">
+        <button class="scan-btn" onclick="document.getElementById('scan-input').click()">
+          <i class="ti ti-camera"></i> Scan Page
+        </button>
+        <span class="scan-hint">Up to 3 pages — scan one at a time</span>
+        <input type="file" id="scan-input" accept="image/*" capture="environment" style="display:none">
+      </div>
+
+      <div id="scan-previews" style="display:none">
+        <div class="scan-preview-label">Scanned pages: <span id="scan-count">0</span>/3</div>
+        <div id="scan-thumbs" class="scan-thumbs"></div>
+        <button class="scan-add-btn" id="scan-add-btn" onclick="document.getElementById('scan-input').click()">
+          <i class="ti ti-plus"></i> Add another page
+        </button>
+      </div>
+
       <div class="file-chip" id="file-chip" style="display:none">
         <i class="ti ti-file-text" style="font-size:16px;color:var(--muted)"></i>
         <span id="file-chip-name"></span>
         <button class="rm" onclick="clearFile()">✕</button>
       </div>
       <button class="parse-btn" id="parse-btn" onclick="parsePDF()" disabled>
-        <i class="ti ti-sparkles"></i> Parse PDF with AI
+        <i class="ti ti-sparkles"></i> Parse with AI
       </button>
       <div class="status" id="status" style="display:none">
         <div class="spinner"></div>

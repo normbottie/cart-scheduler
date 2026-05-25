@@ -58,6 +58,7 @@ let permNoCart=loadPermNoCart();
 let employees=[], scheduleDate='', slotCaps={}, slotTypes={}, lastSchedule=null;
 let excludeFromCarts=new Set(), excludeFromSweep=new Set();
 const SLOTS=[];for(let m=7*60;m<22*60;m+=30)SLOTS.push(m);
+let scannedPages=[]; // array of {dataUrl, b64, name}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
@@ -71,6 +72,11 @@ window.addEventListener('load',()=>{
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
   // Close menu on outside click
+  document.getElementById('scan-input').addEventListener('change',e=>{
+    if(e.target.files[0]) addScannedPage(e.target.files[0]);
+    e.target.value=''; // reset so same file can be re-selected
+  });
+
   document.addEventListener('click',e=>{
     const menu=document.getElementById('perm-menu');
     if(menu&&!menu.contains(e.target)&&!document.getElementById('menu-btn').contains(e.target)){
@@ -164,7 +170,10 @@ function setFile(f){
 }
 function clearFile(){
   currentFile=null;
+  scannedPages=[];
+  renderScanPreviews();
   document.getElementById('drop-zone').style.display='block';
+  document.getElementById('upload-divider') && (document.getElementById('upload-divider').style.display='');
   document.getElementById('file-chip').style.display='none';
   document.getElementById('parse-btn').disabled=true;
   employees=[];
@@ -172,6 +181,57 @@ function clearFile(){
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
   setStatus('');
+}
+
+// ── Scan functions ───────────────────────────────────────────────────────────
+function addScannedPage(file){
+  if(scannedPages.length>=3){alert('Maximum 3 pages.');return;}
+  // Clear PDF if switching to scan mode
+  if(currentFile){
+    currentFile=null;
+    document.getElementById('file-chip').style.display='none';
+    document.getElementById('drop-zone').style.display='none';
+  }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const dataUrl=e.target.result;
+    const b64=dataUrl.split(',')[1];
+    const mediaType=file.type||'image/jpeg';
+    scannedPages.push({dataUrl,b64,mediaType,name:file.name});
+    renderScanPreviews();
+    document.getElementById('parse-btn').disabled=false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeScannedPage(idx){
+  scannedPages.splice(idx,1);
+  renderScanPreviews();
+  if(scannedPages.length===0&&!currentFile){
+    document.getElementById('parse-btn').disabled=true;
+    document.getElementById('drop-zone').style.display='block';
+  }
+}
+
+function renderScanPreviews(){
+  const container=document.getElementById('scan-previews');
+  const thumbs=document.getElementById('scan-thumbs');
+  const addBtn=document.getElementById('scan-add-btn');
+  const count=document.getElementById('scan-count');
+  if(scannedPages.length===0){
+    container.style.display='none';
+    return;
+  }
+  container.style.display='block';
+  count.textContent=scannedPages.length;
+  thumbs.innerHTML=scannedPages.map((p,i)=>`
+    <div class="scan-thumb">
+      <img src="${p.dataUrl}" alt="Page ${i+1}">
+      <div class="scan-thumb-label">Page ${i+1}</div>
+      <button class="scan-thumb-rm" onclick="removeScannedPage(${i})">✕</button>
+    </div>
+  `).join('');
+  addBtn.style.display=scannedPages.length>=3?'none':'flex';
 }
 
 // ── Parse PDF ─────────────────────────────────────────────────────────────────
@@ -198,16 +258,17 @@ async function parsePDF(){
       return;
     }
 
-    const b64=await fileToB64(currentFile);
     const now=new Date();
     scheduleDate=`${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}/${now.getFullYear().toString().slice(-2)}`;
-    const dm=currentFile.name.match(/(\d{1,2})[_\-\/](\d{1,2})[_\-\/](\d{2,4})/);
-    if(dm) scheduleDate=`${dm[1].padStart(2,'0')}/${dm[2].padStart(2,'0')}/${dm[3].slice(-2)}`;
+    if(currentFile){
+      const dm=currentFile.name.match(/(\d{1,2})[_\-\/](\d{1,2})[_\-\/](\d{2,4})/);
+      if(dm) scheduleDate=`${dm[1].padStart(2,'0')}/${dm[2].padStart(2,'0')}/${dm[3].slice(-2)}`;
+    }
     document.getElementById('sched-date').textContent=scheduleDate;
 
     setStatus('Analyzing with AI...');
 
-    const prompt=`Parse this retail Daily Overview shift schedule PDF. Extract ALL associates whose job class is one of: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all other job classes.
+    const prompt=`Parse this retail Daily Overview shift schedule. It may be a PDF or one or more photos of printed pages. Extract ALL associates whose job class is one of: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all other job classes.
 
 For each qualifying associate return:
 - name: "First Last" format (convert "Last, First"; strip [m] [mm] prefixes; fix ALL CAPS names to Title Case)
@@ -222,16 +283,30 @@ For each qualifying associate return:
 
 Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a valid JSON array, no markdown.`;
 
+    // Build content array — PDF or images
+    let contentArr;
+    if(scannedPages.length>0){
+      // Images from camera
+      contentArr=[
+        ...scannedPages.map(p=>({type:'image',source:{type:'base64',media_type:p.mediaType,data:p.b64}})),
+        {type:'text',text:prompt}
+      ];
+    } else {
+      // PDF upload
+      const b64=await fileToB64(currentFile);
+      contentArr=[
+        {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+        {type:'text',text:prompt}
+      ];
+    }
+
     const res=await fetch(WORKER_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-5',
         max_tokens:4000,
-        messages:[{role:'user',content:[
-          {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-          {type:'text',text:prompt}
-        ]}]
+        messages:[{role:'user',content:contentArr}]
       })
     });
 
