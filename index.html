@@ -51,34 +51,27 @@
       <div class="sub-step">
         <div class="sub-step-title"><span class="sub-step-num">A</span> Daily Overview Schedule</div>
         
-        <div class="scan-zone">
-          <button class="scan-btn" onclick="document.getElementById('scan-input').click()">
-            <i class="ti ti-camera"></i> Scan Page
-          </button>
-          <span class="scan-hint">Scan one page at a time — add as many pages as needed</span>
-          <input type="file" id="scan-input" accept="image/*" capture="environment" style="display:none">
-        </div>
-        <div id="scan-previews" style="display:none;margin-top:10px">
-          <div class="scan-preview-label">Pages scanned: <span id="scan-count">0</span></div>
-          <div id="scan-thumbs" class="scan-thumbs"></div>
-          <button class="scan-thumb-add" id="scan-add-btn" onclick="document.getElementById('scan-input').click()">
-            <i class="ti ti-plus"></i><span>Add page</span>
-          </button>
+        <input type="file" id="scan-input" accept="image/*" capture="environment" style="display:none">
+        <div id="scan-previews" style="margin-top:4px">
+          <div class="scan-preview-label" id="scan-label" style="display:none">Pages scanned: <span id="scan-count">0</span></div>
+          <div class="scan-thumbs" id="scan-thumbs-wrap">
+            <div id="scan-thumbs"></div>
+            <button class="scan-thumb-add" id="scan-add-btn" onclick="document.getElementById('scan-input').click()">
+              <i class="ti ti-camera"></i><span>Add page</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <div class="sub-step" style="margin-top:16px">
-        <div class="sub-step-title"><span class="sub-step-num">B</span> Cart Service Schedule <span style="font-size:11px;color:var(--muted);font-weight:400">(optional, you can manually edit required associates)</span></div>
+        <div class="sub-step-title"><span class="sub-step-num">B</span> Cart Service Schedule <span style="font-size:11px;color:var(--muted);font-weight:400">(optional, you can manually edit required number of associates)</span></div>
         
-        <div class="scan-zone">
-          <button class="scan-btn" onclick="document.getElementById('cart-sched-input').click()">
-            <i class="ti ti-camera"></i> Scan Cart Schedule
+        <input type="file" id="cart-sched-input" accept="image/*" capture="environment" style="display:none">
+        <div class="scan-thumbs" style="margin-top:4px">
+          <div id="cart-sched-thumbs"></div>
+          <button class="scan-thumb-add" id="cart-sched-add-btn" onclick="document.getElementById('cart-sched-input').click()">
+            <i class="ti ti-camera"></i><span>Scan</span>
           </button>
-          <input type="file" id="cart-sched-input" accept="image/*" capture="environment" style="display:none">
-        </div>
-        <div id="cart-sched-preview" style="display:none;margin-top:10px">
-          <div class="scan-preview-label">Cart schedule scanned ✓</div>
-          <div id="cart-sched-thumbs" class="scan-thumbs"></div>
         </div>
       </div>
 
@@ -204,9 +197,14 @@
           <tbody id="sched-tbody"></tbody>
         </table>
       </div>
-      <button class="dl-btn" onclick="exportPDF()">
-        <i class="ti ti-download"></i> Download PDF
-      </button>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="dl-btn" style="margin-top:0" onclick="exportPDF()">
+          <i class="ti ti-download"></i> Download PDF
+        </button>
+        <button class="dl-btn" style="margin-top:0;background:var(--muted)" onclick="printPDF()">
+          <i class="ti ti-printer"></i> Print
+        </button>
+      </div>
     </div>
   </div>
 

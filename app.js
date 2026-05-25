@@ -232,16 +232,11 @@ function removeScannedPage(idx){
 }
 
 function renderScanPreviews(){
-  const container=document.getElementById('scan-previews');
   const thumbs=document.getElementById('scan-thumbs');
-  const addBtn=document.getElementById('scan-add-btn');
+  const label=document.getElementById('scan-label');
   const count=document.getElementById('scan-count');
-  if(scannedPages.length===0){
-    container.style.display='none';
-    return;
-  }
-  container.style.display='block';
-  count.textContent=scannedPages.length;
+  if(label) label.style.display=scannedPages.length>0?'block':'none';
+  if(count) count.textContent=scannedPages.length;
   thumbs.innerHTML=scannedPages.map((p,i)=>`
     <div class="scan-thumb">
       <img src="${p.objectUrl}" alt="Page ${i+1}">
@@ -249,7 +244,6 @@ function renderScanPreviews(){
       <button class="scan-thumb-rm" onclick="removeScannedPage(${i})">✕</button>
     </div>
   `).join('');
-  addBtn.style.display='flex';
 }
 
 function setCartSchedImage(file, inputEl){
@@ -548,6 +542,305 @@ Example: [{"time":"7:00am","capacity":1,"type":"lot"},{"time":"7:30am","capacity
     console.warn('Cart schedule parse failed:',e.message);
   }
 }
+
+
+// ── Print PDF ─────────────────────────────────────────────────────────────────
+async function printPDF(){
+  if(!lastSchedule)return;
+  if(!window.jspdf){alert('PDF library loading, please try again.');return;}
+  // Generate the PDF same as download, but open in new tab for printing
+  const{jsPDF}=window.jspdf;
+  const{schedule,fec1Name,fec2Name,scheduleDate}=lastSchedule;
+  const doc=buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate);
+  const dataUri=doc.output('datauristring');
+  const win=window.open('');
+  if(!win){alert('Please allow popups for printing.');return;}
+  win.document.write('<html><body style="margin:0"><iframe src="'+dataUri+'" style="width:100%;height:100vh;border:none" onload="this.contentWindow.print()"></iframe></body></html>');
+  win.document.close();
+}
+
+// ── Scheduler ─────────────────────────────────────────────────────────────────
+function buildSchedule(){
+  const fec1Name=document.getElementById('fec1-select').value;
+  const fec1Start=timeInputToMins(document.getElementById('fec1-start').value);
+  const fec1End=timeInputToMins(document.getElementById('fec1-end').value);
+  const fec2Name=document.getElementById('fec2-select').value;
+  const fec2Start=timeInputToMins(document.getElementById('fec2-start').value);
+  const fec2End=timeInputToMins(document.getElementById('fec2-end').value);
+
+  const allExcluded=new Set([...excludeFromCarts,...permNoCart]);
+
+  const state=employees.map(e=>({
+    name:e.name,job:e.job,
+    cartStart:timeToMins(e.cartStart),cartEnd:timeToMins(e.cartEnd),
+    mealStart:e.mealStart?timeToMins(e.mealStart):null,
+    mealEnd:e.mealEnd?timeToMins(e.mealEnd):null,
+    autoFecSegs:(e.autoFecSegments||[]).map(s=>({fs:timeToMins(s.start),fe:timeToMins(s.end)})),
+    cleanSegs:(e.csCleaningSegments||[]).map(s=>({cs:timeToMins(s.start),ce:timeToMins(s.end)})),
+    floorSegs:(e.csFloorCareSegments||[]).map(s=>({cs:timeToMins(s.start),ce:timeToMins(s.end)})),
+    last_idx:-2,consec:0,total:0
+  }));
+
+  const isOnMeal=(e,ss,se)=>e.mealStart!==null&&ss<e.mealEnd&&se>e.mealStart;
+  const isAvail=(e,ss,se)=>e.cartStart!==null&&e.cartStart<=ss&&e.cartEnd>=se&&!isOnMeal(e,ss,se);
+  const isAutoFecBlocked=(e,ss,se)=>e.autoFecSegs.some(f=>ss<f.fe&&se>f.fs);
+  const isFecWin=(name,ss,fStart,fEnd)=>!!name&&fStart!==null&&fEnd!==null&&ss>=fStart&&ss<fEnd;
+
+  const cleanersList=[];const seenC=new Set();
+  employees.forEach(e=>{
+    if(seenC.has(e.name))return;seenC.add(e.name);
+    if(e.csCleaningSegments&&e.csCleaningSegments.length){
+      cleanersList.push({name:e.name,earliest:Math.min(...e.csCleaningSegments.map(s=>timeToMins(s.start)))});
+    }
+  });
+  cleanersList.sort((a,b)=>a.earliest-b.earliest);
+  const pmCleaner=cleanersList.length>1?cleanersList[cleanersList.length-1].name:null;
+  const pmCleanSegs=pmCleaner?state.find(e=>e.name===pmCleaner)?.cleanSegs||[]:[];
+
+  const floorCareTime=t(21,30);
+  const floorWorkers=[];const fcSeen=new Set();
+  state.forEach(e=>{if(fcSeen.has(e.name))return;if(e.floorSegs.some(s=>s.cs<=floorCareTime&&s.ce>=floorCareTime+30)){floorWorkers.push(e.name);fcSeen.add(e.name);}});
+
+  const slotCounts={};const sweepCounts={};
+  [...new Set(employees.map(e=>e.name))].forEach(n=>{slotCounts[n]=0;sweepCounts[n]=0;});
+
+  const schedule=SLOTS.map((ss,i)=>{
+    const se=ss+30,cap=slotCaps[ss]||0,stype=slotTypes[ss]||'cart',maxC=stype==='lot'?2:1;
+    const inF1=isFecWin(fec1Name,ss,fec1Start,fec1End);
+    const inF2=isFecWin(fec2Name,ss,fec2Start,fec2End);
+
+    const canAssign=(e,exCSTL,exFec)=>{
+      if(!isAvail(e,ss,se))return false;
+      if(isAutoFecBlocked(e,ss,se))return false;
+      if(exFec&&((inF1&&e.name===fec1Name)||(inF2&&e.name===fec2Name)))return false;
+      if(allExcluded.has(e.name))return false;
+      if(exCSTL&&['cstl','csm','mgr'].includes(e.job))return false;
+      if(e.last_idx===i-1&&e.consec>=maxC)return false;
+      return true;
+    };
+    const sk=e=>[(e.last_idx===i-1?e.consec:0),e.total];
+    const sf=(a,b)=>{const ka=sk(a),kb=sk(b);return ka[0]-kb[0]||ka[1]-kb[1];};
+
+    let assigned=state.filter(e=>canAssign(e,true,true)).sort(sf).slice(0,cap);
+    if(assigned.length<cap){
+      const mgrs=state.filter(e=>['cstl','csm','mgr'].includes(e.job)&&canAssign(e,false,true)&&!assigned.includes(e)).sort(sf);
+      assigned=[...assigned,...mgrs.slice(0,cap-assigned.length)];
+    }
+    const fecOnCarts=[];
+    if(assigned.length<cap){
+      [[fec1Name,inF1],[fec2Name,inF2]].forEach(([fname,inWin])=>{
+        if(!fname||!inWin)return;
+        const fe=state.find(e=>e.name===fname&&isAvail(e,ss,se)&&!assigned.includes(e));
+        if(fe&&assigned.length<cap){assigned.push(fe);fecOnCarts.push(fname);}
+      });
+    }
+
+    assigned.forEach(e=>{
+      e.consec=e.last_idx===i-1?e.consec+1:1;e.last_idx=i;e.total++;
+      slotCounts[e.name]=(slotCounts[e.name]||0)+1;
+    });
+    state.forEach(e=>{if(!assigned.includes(e)&&e.last_idx===i-1)e.consec=0;});
+
+    return{start:ss,cap,type:stype,
+      assigned:assigned.map(e=>({name:e.name,job:e.job,fecOn:fecOnCarts.includes(e.name),isMgr:['cstl','csm','mgr'].includes(e.job)})),
+      fecOnCarts};
+  });
+
+  // Sweeps
+  const cartAt={};schedule.forEach(s=>{cartAt[s.start]=new Set(s.assigned.map(a=>a.name));});
+  const SWEEP_IDEAL=[t(9,0),t(11,0),t(13,0),t(15,0),t(17,0),t(19,0)];
+  const validSlots=new Set(SLOTS);
+  const sweepAssign={};
+  if(floorWorkers.length) sweepAssign[floorCareTime]=floorWorkers;
+
+  const getSweepPerson=(ss,cartNames)=>{
+    const se=ss+30;
+    const inPmClean=pmCleanSegs.some(s=>ss>=s.cs&&ss<s.ce);
+    const inF1sw=isFecWin(fec1Name,ss,fec1Start,fec1End);
+    const inF2sw=isFecWin(fec2Name,ss,fec2Start,fec2End);
+    const pool=state.filter(e=>{
+      if(!['fsc'].includes(e.job))return false; // only FSC for sweep
+      if(e.cartStart===null||e.cartStart>ss||e.cartEnd<se)return false;
+      if(isOnMeal(e,ss,se))return false;
+      if(cartNames.has(e.name))return false;
+      if(excludeFromSweep.has(e.name))return false;
+      if(allExcluded.has(e.name))return false;
+      if(pmCleaner&&e.name===pmCleaner&&inPmClean)return false;
+      if(inF1sw&&e.name===fec1Name)return false;
+      if(inF2sw&&e.name===fec2Name)return false;
+      return true;
+    });
+    if(!pool.length)return null;
+    pool.sort((a,b)=>(sweepCounts[a.name]||0)-(sweepCounts[b.name]||0)||a.total-b.total);
+    return pool[0].name;
+  };
+
+  SWEEP_IDEAL.forEach(ideal=>{
+    for(const cand of[ideal,ideal+30,ideal-30]){
+      if(!validSlots.has(cand)||sweepAssign[cand])continue;
+      const p=getSweepPerson(cand,cartAt[cand]||new Set());
+      if(p){sweepAssign[cand]=p;sweepCounts[p]=(sweepCounts[p]||0)+1;break;}
+    }
+  });
+
+  schedule.forEach(s=>{s.sweep=sweepAssign[s.start]||null;});
+  lastSchedule={schedule,slotCounts,fec1Name,fec2Name,scheduleDate};
+  closeStep('step2');closeStep('step3');closeStep('step4');
+  renderResults();
+}
+
+// ── Render results ────────────────────────────────────────────────────────────
+function renderResults(){
+  const{schedule,slotCounts,fec1Name,fec2Name}=lastSchedule;
+  // Show and open result steps
+  ['step5','step6'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.style.display='block';openStep(id);}
+  });
+  document.getElementById('step5').scrollIntoView({behavior:'smooth'});
+
+  const tbody=document.getElementById('counts-tbody');tbody.innerHTML='';
+  const seen=new Set();
+  employees.forEach(e=>{
+    if(seen.has(e.name))return;seen.add(e.name);
+    const isFec=e.name===fec1Name||e.name===fec2Name;
+    const isAFec=e.autoFecSegments&&e.autoFecSegments.length;
+    const isMgr=['cstl','csm','mgr'].includes(e.job);
+    const xc=excludeFromCarts.has(e.name)||permNoCart.has(e.name);
+    const xs=excludeFromSweep.has(e.name);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${e.name}${isFec?`<span class="badge badge-fec">FEC</span>`:''}${isAFec?`<span class="badge badge-autofec">Auto-FEC</span>`:''}${isMgr?`<span class="badge badge-cstl">${['cstl'].includes(e.job)?'CS Team Leader':'Manager'}</span>`:''}${xc?`<span class="badge badge-excluded">No carts</span>`:''}${xs?`<span class="badge badge-excluded">No sweep</span>`:''}</td>
+    <td style="font-size:11px;color:var(--muted)">${e.cartStart?`${e.cartStart}–${e.cartEnd}`:'—'}</td>
+    <td style="font-size:11px;color:var(--muted)">${e.mealStart?`${e.mealStart}–${e.mealEnd}`:'—'}</td>
+    <td style="text-align:center;font-weight:500">${slotCounts[e.name]||0}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  const stbody=document.getElementById('sched-tbody');stbody.innerHTML='';
+  schedule.forEach(s=>{
+    const tr=document.createElement('tr');
+    const numCell=s.type==='lot'?`<span class="lot-type">Lot/Bag</span>`:s.cap;
+    const names=s.assigned.length
+      ?s.assigned.map(a=>{
+        let cls='sched-name';
+        if(a.fecOn)cls+=' fec-on';
+        else if(a.isMgr)cls+=' cstl';
+        else if(s.type==='lot')cls+=' lot';
+        return`<span class="${cls}">${a.name}${a.fecOn?' *':a.isMgr?' †':''}</span>`;
+      }).join('')
+      :'<span style="color:var(--muted);font-size:11px">—</span>';
+    const sw=s.sweep?(Array.isArray(s.sweep)?s.sweep:[s.sweep]).map(n=>`<span class="sched-name sweep">${n}</span>`).join(''):'' ;
+    tr.innerHTML=`<td class="time-cell">${minsToStr(s.start)}</td><td class="num-cell">${numCell}</td><td>${names}</td><td class="sweep-cell">${sw}</td>`;
+    stbody.appendChild(tr);
+  });
+}
+
+// ── PDF Export ────────────────────────────────────────────────────────────────
+function buildPDFDoc(jsPDF, schedule, fec1Name, fec2Name, scheduleDate){
+  const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'letter'});
+  const PW=612,PH=792,MARGIN=36,ROW_H=14;
+  const COL_TIME=MARGIN,COL_NUM=MARGIN+50,COL_A=MARGIN+88;
+  const A_SUB_W=88,MAX_A=3;
+  const SWEEP_RIGHT=PW-MARGIN,SWEEP_W=132,SW_SUB_W=66,MAX_SW=2;
+  const COL_SW=SWEEP_RIGHT-SWEEP_W;
+
+  const drawHeader=y=>{
+    doc.setFillColor(224,222,216);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
+    doc.text('Time',COL_TIME,y+ROW_H/2+2);
+    doc.text('#',COL_NUM,y+ROW_H/2+2);
+    doc.text('Associate(s)',COL_A,y+ROW_H/2+2);
+    doc.text('Store Sweep',COL_SW,y+ROW_H/2+2);
+    doc.setDrawColor(200,200,200);doc.setLineWidth(0.5);
+    doc.line(COL_SW-4,y-3,COL_SW-4,y+ROW_H-3);
+    doc.setTextColor(0,0,0);
+    return y+ROW_H+2;
+  };
+
+  const notes=[];
+  let hasFec=false,hasMgr=false;
+  schedule.forEach(s=>{s.assigned.forEach(a=>{if(a.fecOn)hasFec=true;if(a.isMgr)hasMgr=true;});});
+  if(hasFec){
+    if(fec1Name)notes.push(`* ${firstLast(fec1Name)} is a designated FEC — placed on carts due to insufficient coverage`);
+    if(fec2Name&&fec2Name!==fec1Name)notes.push(`* ${firstLast(fec2Name)} is a designated FEC — placed on carts due to insufficient coverage`);
+  }
+  if(hasMgr)notes.push('† CS Team Leader/Manager placed on carts only where no other associate was available');
+
+  const NOTES_H=notes.length*9+10;
+  const FOOTER_SPACE=NOTES_H+20;
+
+  const newPage=()=>{
+    doc.addPage();let py=40;
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(150,150,150);
+    doc.text(`Cart Schedule ${scheduleDate} (continued)`,MARGIN,py);
+    doc.setTextColor(0,0,0);py+=14;
+    return drawHeader(py);
+  };
+
+  let y=50;
+  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(0,0,0);
+  doc.text(`Cart Schedule ${scheduleDate}`,MARGIN,y);
+  y+=26;y=drawHeader(y);
+
+  schedule.forEach((s,idx)=>{
+    if(y>PH-FOOTER_SPACE-20)y=newPage();
+    if(idx%2===0){doc.setFillColor(251,251,249);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');}
+    doc.setFont('helvetica','normal');doc.setFontSize(8);
+    doc.setDrawColor(210,210,210);doc.setLineWidth(0.5);
+    doc.line(COL_SW-4,y-3,COL_SW-4,y+ROW_H-3);
+    doc.setTextColor(120,120,120);doc.text(minsToStr(s.start),COL_TIME,y+ROW_H-5);
+    if(s.type==='lot'){doc.setTextColor(26,79,160);doc.text('Lot/Bag',COL_NUM,y+ROW_H-5);}
+    else{doc.setTextColor(0,0,0);doc.text(String(s.cap),COL_NUM,y+ROW_H-5);}
+    doc.setTextColor(0,0,0);
+    s.assigned.slice(0,MAX_A).forEach((a,ci)=>{
+      doc.text(firstLast(a.name)+(a.fecOn?' *':a.isMgr?' †':''),COL_A+ci*A_SUB_W,y+ROW_H-5);
+    });
+    if(s.sweep){
+      doc.setTextColor(26,107,58);
+      const sw=Array.isArray(s.sweep)?s.sweep:[s.sweep];
+      sw.slice(0,MAX_SW).forEach((n,si)=>{
+        doc.text(firstLast(n),COL_SW+si*SW_SUB_W,y+ROW_H-5);
+      });
+      doc.setTextColor(0,0,0);
+    }
+    y+=ROW_H;
+  });
+
+  const totalPages=doc.getNumberOfPages();
+  doc.setPage(totalPages);
+  let footY=PH-FOOTER_SPACE+4;
+  if(notes.length){
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(150,150,150);
+    notes.forEach(n=>{doc.text(n,MARGIN,footY);footY+=9;});
+  }
+  doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(190,190,190);
+  doc.text('Made by Norm Bottie',PW-MARGIN,PH-20,{align:'right'});
+  return doc;
+}
+
+async function exportPDF(){
+  if(!lastSchedule)return;
+  if(!window.jspdf){alert('PDF library loading, please try again.');return;}
+  const{jsPDF}=window.jspdf;
+  const{schedule,fec1Name,fec2Name,scheduleDate}=lastSchedule;
+  const doc=buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate);
+  doc.save(`Cart Schedule ${scheduleDate.replace(/\//g,'-')}.pdf`);
+}
+
+async function printPDF(){
+  if(!lastSchedule)return;
+  if(!window.jspdf){alert('PDF library loading, please try again.');return;}
+  const{jsPDF}=window.jspdf;
+  const{schedule,fec1Name,fec2Name,scheduleDate}=lastSchedule;
+  const doc=buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate);
+  const dataUri=doc.output('datauristring');
+  const win=window.open('');
+  if(!win){alert('Please allow popups for printing.');return;}
+  win.document.write('<html><body style="margin:0"><iframe src="'+dataUri+'" style="width:100%;height:100vh;border:none" onload="this.contentWindow.print()"></iframe></body></html>');
+  win.document.close();
+}
+
+
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 function buildSchedule(){
