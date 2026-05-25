@@ -182,15 +182,16 @@ function clearFile(){
 
 // ── Scan functions ───────────────────────────────────────────────────────────
 function addScannedPage(file, inputEl){
+  const objectUrl=URL.createObjectURL(file); // for display only
   const reader=new FileReader();
   reader.onload=e=>{
     const dataUrl=e.target.result;
     const b64=dataUrl.split(',')[1];
     const mediaType=file.type||'image/jpeg';
-    scannedPages.push({dataUrl,b64,mediaType,name:file.name});
+    scannedPages.push({objectUrl,b64,mediaType,name:file.name});
     renderScanPreviews();
     document.getElementById('parse-btn').disabled=false;
-    if(inputEl) inputEl.value=''; // reset after load completes
+    if(inputEl) inputEl.value='';
   };
   reader.onerror=()=>{ alert('Could not read image. Please try again.'); };
   reader.readAsDataURL(file);
@@ -217,7 +218,7 @@ function renderScanPreviews(){
   count.textContent=scannedPages.length;
   thumbs.innerHTML=scannedPages.map((p,i)=>`
     <div class="scan-thumb">
-      <img src="${p.dataUrl}" alt="Page ${i+1}">
+      <img src="${p.objectUrl}" alt="Page ${i+1}">
       <div class="scan-thumb-label">Page ${i+1}</div>
       <button class="scan-thumb-rm" onclick="removeScannedPage(${i})">✕</button>
     </div>
@@ -226,18 +227,19 @@ function renderScanPreviews(){
 }
 
 function setCartSchedImage(file, inputEl){
+  const objectUrl=URL.createObjectURL(file);
   const reader=new FileReader();
   reader.onload=e=>{
     const dataUrl=e.target.result;
     const b64=dataUrl.split(',')[1];
     const mediaType=file.type||'image/jpeg';
-    cartSchedImage={dataUrl,b64,mediaType};
+    cartSchedImage={objectUrl,b64,mediaType};
     // Show preview
     const preview=document.getElementById('cart-sched-preview');
     const thumbs=document.getElementById('cart-sched-thumbs');
     preview.style.display='block';
     thumbs.innerHTML=`<div class="scan-thumb">
-      <img src="${dataUrl}" alt="Cart schedule">
+      <img src="${objectUrl}" alt="Cart schedule">
       <div class="scan-thumb-label">Cart Schedule</div>
       <button class="scan-thumb-rm" onclick="clearCartSched()">✕</button>
     </div>`;
