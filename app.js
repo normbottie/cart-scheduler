@@ -107,37 +107,8 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     }
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-
-    const rawTxt=data.content.map(b=>b.text||'').join('');
-    let employees_parsed=null;
-    // Strategy 1: direct parse
-    try{ employees_parsed=JSON.parse(rawTxt); }catch(e){}
-    // Strategy 2: strip markdown, find array, unescape
-    if(!Array.isArray(employees_parsed)){
-      try{
-        let st=rawTxt.replace(/```json|```/gi,'');
-        // unescape double-escaped quotes
-        st=st.replace(/\\"/g,'"').replace(/\\n/g,'\n').replace(/\\t/g,'\t');
-        const s=st.indexOf('['),en=st.lastIndexOf(']');
-        if(s!==-1&&en>s) employees_parsed=JSON.parse(st.substring(s,en+1));
-      }catch(e){ console.log('strategy2 fail:',e.message); }
-    }
-    // Strategy 3: the whole thing is a JSON string - double parse
-    if(!Array.isArray(employees_parsed)){
-      try{
-        const inner=JSON.parse(rawTxt);
-        if(typeof inner==='string'){
-          const st=inner.replace(/```json|```/gi,'');
-          const s=st.indexOf('['),en=st.lastIndexOf(']');
-          if(s!==-1&&en>s) employees_parsed=JSON.parse(st.substring(s,en+1));
-        } else if(Array.isArray(inner)){
-          employees_parsed=inner;
-        }
-      }catch(e){ console.log('strategy3 fail:',e.message); }
-    }
-    if(!Array.isArray(employees_parsed)){ console.error('Raw:',rawTxt); throw new Error('Could not parse AI response. Check browser console.'); }
-    employees=employees_parsed;
-    const raw=rawTxt;
+    if(!data.success) throw new Error('Worker could not parse AI response: '+(data.error||data.raw||'unknown'));
+    employees=data.employees;
     // Strip any markdown fences and find the JSON array
     // parsing handled above
     excludeFromSweep=new Set();
