@@ -411,14 +411,42 @@ function renderAssociates(){
     const meal=e.mealStart?`<div class="meal">Meal: ${e.mealStart}–${e.mealEnd}</div>`:'';
     const fecNote=(e.autoFecSegments&&e.autoFecSegments.length)?`<div class="meal" style="color:var(--blue)">Auto-FEC: ${e.autoFecSegments.map(s=>`${s.start}–${s.end}`).join(', ')}</div>`:'';
     const permNote=isPerm?`<div class="meal" style="color:var(--red)">Permanently excluded from carts</div>`:'';
-    div.innerHTML=`
-      <div class="name">${e.name}</div>
-      <div class="meta">${jobLabel(e.job)} · ${range}</div>
-      ${meal}${fecNote}${permNote}
-      <div class="toggles">
-        <button class="tog ${noCart?'active-no-cart':''}" ${isPerm?'disabled title="Permanently excluded"':''} onclick="toggleExclude('cart','${e.name.replace(/'/g,"\\'")}',this)">${noCart?'✕ No carts':'No carts'}</button>
-        <button class="tog ${noSweep?'active-no-sweep':''}" onclick="toggleExclude('sweep','${e.name.replace(/'/g,"\\'")}',this)">${noSweep?'✕ No sweep':'No sweep'}</button>
-      </div>`;
+    div.innerHTML='';
+    // Header row with name and edit button
+    const headerRow=document.createElement('div');
+    headerRow.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:6px';
+    const nameInfo=document.createElement('div');
+    nameInfo.innerHTML='<div class="name" id="name-display-'+i+'">'+e.name+'</div><div class="meta">'+jobLabel(e.job)+' · '+range+'</div>'+meal+fecNote+permNote;
+    const editBtn=document.createElement('button');
+    editBtn.className='edit-name-btn';editBtn.title='Edit name';editBtn.textContent='✏';
+    editBtn.onclick=(()=>{const idx=i;return()=>startEditName(idx);})();
+    headerRow.appendChild(nameInfo);headerRow.appendChild(editBtn);
+    div.appendChild(headerRow);
+    // Inline edit row
+    const editRow=document.createElement('div');
+    editRow.className='name-edit-row';editRow.id='name-edit-'+i;editRow.style.display='none';
+    const inp=document.createElement('input');inp.type='text';inp.className='name-edit-input';
+    inp.id='name-input-'+i;inp.value=e.name;
+    inp.onkeydown=((idx)=>function(ev){if(ev.key==='Enter')saveEditName(idx);})(i);
+    const saveBtn=document.createElement('button');saveBtn.className='sm-btn';saveBtn.textContent='Save';
+    saveBtn.onclick=(()=>{const idx=i;return()=>saveEditName(idx);})();
+    const cancelBtn=document.createElement('button');cancelBtn.className='sm-btn';cancelBtn.textContent='Cancel';
+    cancelBtn.onclick=(()=>{const idx=i;return()=>cancelEditName(idx);})();
+    editRow.appendChild(inp);editRow.appendChild(saveBtn);editRow.appendChild(cancelBtn);
+    div.appendChild(editRow);
+    // Toggles
+    const toggles=document.createElement('div');toggles.className='toggles';toggles.style.marginTop='8px';
+    const cartBtn=document.createElement('button');
+    cartBtn.className='tog'+(noCart?' active-no-cart':'');
+    if(isPerm){cartBtn.disabled=true;cartBtn.title='Permanently excluded';}
+    cartBtn.textContent=noCart?'✕ No carts':'No carts';
+    cartBtn.onclick=function(){toggleExclude('cart',e.name,this);};
+    const sweepBtn=document.createElement('button');
+    sweepBtn.className='tog'+(noSweep?' active-no-sweep':'');
+    sweepBtn.textContent=noSweep?'✕ No sweep':'No sweep';
+    sweepBtn.onclick=function(){toggleExclude('sweep',e.name,this);};
+    toggles.appendChild(cartBtn);toggles.appendChild(sweepBtn);
+    div.appendChild(toggles)
     grid.appendChild(div);
   });
 }
@@ -435,11 +463,6 @@ function toggleExclude(type,name,btn){
 
 
 // ── Name editing ──────────────────────────────────────────────────────────────
-function startEditName(i){
-  document.getElementById('name-edit-'+i).style.display='flex';
-  const inp=document.getElementById('name-input-'+i);
-  inp.focus();inp.select();
-}
 function cancelEditName(i){
   document.getElementById('name-edit-'+i).style.display='none';
   document.getElementById('name-input-'+i).value=employees[i].name;
