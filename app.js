@@ -112,8 +112,10 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     // Strip any markdown fences and find the JSON array
     let clean=raw.replace(/```json|```/gi,'').replace(/^[\s\S]*?(?=\[)/,'').trim();
     // Extract just the JSON array if there's surrounding text
-    const arrMatch=clean.match(/\[[\s\S]*\]/);
-    if(arrMatch) clean=arrMatch[0];
+    // Find the JSON array - look for [ ... ] 
+    const startIdx = clean.indexOf('[');
+    const endIdx = clean.lastIndexOf(']');
+    if(startIdx !== -1 && endIdx !== -1) clean = clean.substring(startIdx, endIdx + 1);
     try {
       employees=JSON.parse(clean);
     } catch(parseErr) {
