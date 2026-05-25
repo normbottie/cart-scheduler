@@ -1,1125 +1,143 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#8b929e">
-
-<!-- PWA -->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Rewards">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CartSched">
+<title>Cart Scheduler</title>
 <link rel="manifest" href="manifest.json">
-
-<!-- Apple touch icon (inline SVG as data URI) -->
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%23197A6F'/><rect x='32' y='144' width='448' height='224' rx='40' fill='white' opacity='0.15'/><rect x='32' y='144' width='448' height='224' rx='40' fill='none' stroke='white' stroke-width='16'/><rect x='32' y='208' width='448' height='64' fill='white' opacity='0.3'/><rect x='80' y='288' width='128' height='32' rx='16' fill='white' opacity='0.7'/><rect x='304' y='272' width='144' height='64' rx='24' fill='white' opacity='0.5'/></svg>">
-
-<title>Card Rewards Optimizer</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-// Must run before CSS renders to prevent flash
-try{
-  if(localStorage.getItem('cc_dark')==='1'){
-    document.documentElement.setAttribute('data-theme','dark');
-  }
-}catch(e){}
+  window.addEventListener('load', function(){
+    if(typeof pdfjsLib !== 'undefined'){
+      // Disable worker to avoid Safari CSP issues — runs in main thread
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    }
+  });
 </script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='10' fill='%23197A6F'/><rect x='4' y='18' width='56' height='28' rx='5' fill='white' opacity='0.15'/><rect x='4' y='18' width='56' height='28' rx='5' fill='none' stroke='white' stroke-width='2'/><rect x='4' y='26' width='56' height='8' fill='white' opacity='0.3'/><rect x='10' y='36' width='16' height='4' rx='2' fill='white' opacity='0.7'/><rect x='38' y='34' width='18' height='8' rx='3' fill='white' opacity='0.5'/></svg>">
-<style>
-:root {
-  --bg:#f8fafc; --surface:#ffffff; --border:#e5e7eb; --border2:#d1d5db;
-  --text:#111111; --text2:#6b7280;
-  --chip-bg:#eff6ff; --chip-border:#bfdbfe; --chip-text:#1e40af; --chip-rm:#93c5fd;
-  --cat-bg:#ffffff; --cat-hover:#eff6ff; --cat-hover-b:#93c5fd;
-  --cat-on:#eff6ff; --cat-on-b:#3b82f6; --cat-on-t:#1d4ed8;
-  --btn:#111111; --btn-t:#ffffff; --btn-h:#333333;
-  --res-bg:#f9fafb; --res-b:#e5e7eb; --res-div:#f3f4f6;
-  --green:#16a34a; --badge-bg:#dcfce7; --badge-t:#15803d;
-  --dis:#9ca3af; --gold:#d97706; --rank:#9ca3af;
-  --tog:#e5e7eb;
-}
-[data-theme="dark"] {
-  --bg:#0f1117; --surface:#1a1d27; --border:#2d3148; --border2:#3d4160;
-  --text:#f0f2f8; --text2:#8b92b3;
-  --chip-bg:#1e2540; --chip-border:#3b4a7a; --chip-text:#93aff5; --chip-rm:#4a63b5;
-  --cat-bg:#1a1d27; --cat-hover:#1e2540; --cat-hover-b:#4a63b5;
-  --cat-on:#1e2540; --cat-on-b:#6080e0; --cat-on-t:#93aff5;
-  --btn:#6080e0; --btn-t:#ffffff; --btn-h:#4a63b5;
-  --res-bg:#151821; --res-b:#2d3148; --res-div:#222536;
-  --green:#4ade80; --badge-bg:#14301e; --badge-t:#4ade80;
-  --dis:#4a4f6a; --gold:#fbbf24; --rank:#555c82;
-  --tog:#6080e0;
-}
-*{box-sizing:border-box;margin:0;padding:0;transition:background-color .3s ease,border-color .3s ease,color .3s ease}
-button,select,input{transition:background-color .3s ease,border-color .3s ease,color .3s ease,opacity .3s ease}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px 16px;padding-top:max(24px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom));padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));max-width:700px;margin:0 auto;background:var(--bg);color:var(--text)}
-h1{font-size:22px;margin-bottom:8px;color:var(--text);transition:color .3s ease}
-.hint{font-size:14px;color:var(--text2);margin-bottom:8px}
-.section{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden}
-.sec-header{display:flex;align-items:center;justify-content:space-between;padding:16px;cursor:pointer;user-select:none;-webkit-user-select:none;transition:padding .3s cubic-bezier(0.4,0,1,1)}
-#sec1.sec1-collapsed .sec-header{padding-bottom:6px}
-.sec-header h2{font-size:15px;color:var(--text);margin:0;pointer-events:none;user-select:none;-webkit-user-select:none}
-.sec-header .toggle-icon{color:var(--text2);transition:transform .3s ease,color .3s ease;pointer-events:none;user-select:none;-webkit-user-select:none;display:block;flex-shrink:0;transform-origin:center center}
-.sec-header .toggle-icon.open{transform:rotate(180deg)}
-.sec-body{padding:0 16px;overflow:hidden;max-height:3000px;transition:max-height .4s cubic-bezier(0.0,0,0.2,1),padding .4s cubic-bezier(0.0,0,0.2,1),opacity .25s ease;opacity:1;padding-bottom:8px}
-.sec-body.collapsed{max-height:0;padding-top:0;padding-bottom:0;opacity:0;transition:max-height .3s cubic-bezier(0.4,0,1,1),padding .3s cubic-bezier(0.4,0,1,1),opacity .2s ease}
-.sec-summary{font-size:13px;color:var(--text2);padding:0 16px 14px;overflow:hidden;max-height:0;transition:max-height .3s ease,opacity .3s ease;opacity:0}
-.sec-summary.visible{max-height:200px;opacity:1}
-select{padding:8px 10px;font-size:14px;border:1px solid var(--border2);border-radius:8px;width:100%;margin-bottom:8px;background:var(--surface);color:var(--text);-webkit-tap-highlight-color:transparent;outline:none}
-button{padding:8px 16px;margin:2px;cursor:pointer;border:1px solid var(--border2);border-radius:8px;background:var(--surface);font-size:14px;color:var(--text);transition:background .15s}
-button:hover{background:var(--res-bg)}
-.add-btn{background:var(--btn);color:var(--btn-t);border:none;border-radius:8px;padding:11px 20px;font-size:14px;cursor:pointer;width:100%;margin-top:4px;font-weight:500;display:block}
-.add-btn:hover{background:var(--btn-h)}
-.add-btn:disabled{background:var(--dis);cursor:default}
-#cards-list{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:4px 0;flex-wrap:nowrap;-webkit-mask-image:linear-gradient(to right,transparent 0,black 20px,black calc(100% - 20px),transparent 100%);mask-image:linear-gradient(to right,transparent 0,black 20px,black calc(100% - 20px),transparent 100%)}
-#cards-list::-webkit-scrollbar{display:none}
-.chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip-bg);border:1px solid var(--chip-border);border-radius:20px;padding:6px 12px;font-size:12px;color:var(--chip-text);white-space:nowrap;flex-shrink:0;cursor:default;transition:opacity .15s,transform .15s;user-select:none;-webkit-user-select:none;line-height:1}
-.chip.dragging{opacity:.4;transform:scale(.95)}
-.chip.drag-over{border-color:var(--cat-on-b)}
-.chip-handle{cursor:grab;color:var(--chip-rm);font-size:14px;padding:0 2px;user-select:none;-webkit-user-select:none;line-height:1;touch-action:none;display:flex;align-items:center;transform:translateY(-1px)}
-.chip-handle:active{cursor:grabbing}
-.rm{background:none!important;border:none!important;color:var(--chip-rm);cursor:pointer;font-size:14px;padding:0;margin:0;line-height:1;transition:color .3s ease;display:flex;align-items:center}
-.rm:hover{color:var(--chip-text)!important}
-.bank-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;justify-content:center}
-.bank-btn{padding:8px 6px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--cat-bg);color:var(--text2);cursor:pointer;text-align:center;line-height:1.3;transition:background-color .3s ease,border-color .3s ease,color .3s ease;display:flex;align-items:center;justify-content:center;width:130px;height:52px;flex-grow:0;flex-shrink:0}
-
-.bank-btn:hover{background:var(--cat-hover);border-color:var(--cat-hover-b);color:var(--text)}
-.bank-btn.on{background:var(--cat-on);border-color:var(--cat-on-b);color:var(--cat-on-t);font-weight:500}
-.card-pick{margin-top:0;overflow:hidden;max-height:0;opacity:0;transition:max-height .35s cubic-bezier(0.4,0,0.2,1),opacity .3s ease,margin-top .35s ease}
-.card-pick.open{max-height:200px;opacity:1;margin-top:10px}
-.card-pick-btns{display:flex;gap:8px;margin-top:4px}
-.card-pick-btns .add-btn{flex:1;margin:0}
-.card-pick-btns .preview-btn-inline{flex:1;margin:0;background:none;border:0.5px solid var(--border2);color:var(--text);border-radius:8px;padding:11px 20px;font-size:14px;cursor:pointer;font-weight:500;text-align:center}
-.card-pick-btns .preview-btn-inline:hover{background:var(--res-bg)}
-.card-pick-btns .preview-btn-inline:disabled{opacity:.4;cursor:default}
-.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
-.cat-btn{padding:10px 4px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--cat-bg);color:var(--text2);cursor:pointer;text-align:center;line-height:1.4;transition:background-color .3s ease,border-color .3s ease,color .3s ease}
-.cat-btn:hover{background:var(--cat-hover);border-color:var(--cat-hover-b);color:var(--text)}
-.cat-btn.on{background:var(--cat-on);border-color:var(--cat-on-b);color:var(--cat-on-t);font-weight:500}
-.go-btn{background:var(--btn);color:var(--btn-t);border:none;border-radius:8px;padding:11px 20px;font-size:14px;cursor:pointer;width:100%;margin-top:4px;font-weight:500}
-.go-btn:hover{background:var(--btn-h)}
-.go-btn:disabled{background:var(--dis);cursor:default}
-.res-box{margin-top:12px;background:var(--res-bg);border:1px solid var(--res-b);border-radius:8px;padding:14px;overflow:hidden}
-@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideUp{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-8px)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.res-box.animate{animation:slideDown .35s cubic-bezier(0.4,0,0.2,1) both}
-.res-box.animate-fade{animation:fadeIn .3s ease both}
-.res-box.animate-out{animation:slideUp .25s cubic-bezier(0.4,0,1,1) forwards}
-.ri{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--res-div)}
-.ri:last-child{border-bottom:none;padding-bottom:0}
-.ri:first-child{padding-top:0}
-.rank{font-size:18px;font-weight:700;min-width:28px;color:var(--rank)}
-.rank.gold{color:var(--gold)}
-.rinfo{flex:1}
-.rname{font-weight:600;font-size:14px;margin-bottom:2px;color:var(--text)}
-.rrate{color:var(--green);font-weight:600;font-size:13px;margin-bottom:2px}
-.rnote{font-size:12px;color:var(--text2)}
-.badge{display:inline-block;background:var(--badge-bg);color:var(--badge-t);font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;margin-left:6px;vertical-align:middle}
-/* ── Settings modal ───────────────────────────────────────── */
-.settings-btn{background:none;border:none;cursor:pointer;color:var(--text2);font-size:20px;padding:4px;line-height:1;margin-top:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-.settings-btn:hover{color:var(--text)}
-.hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
-.toggle-wrap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;user-select:none;margin-top:4px}
-.tog{position:relative;width:40px;height:22px;flex-shrink:0}
-.tog input{opacity:0;width:0;height:0}
-.sl{position:absolute;inset:0;background:var(--tog);border-radius:22px;transition:background .2s}
-.sl:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s}
-input:checked+.sl:before{transform:translateX(18px)}
-
-/* ── Toast notification ───────────────────────────────────── */
-.toast{position:fixed;bottom:max(24px,calc(env(safe-area-inset-bottom) + 12px));left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--text);box-shadow:0 4px 24px rgba(0,0,0,.18);opacity:0;transition:opacity .4s ease,transform .4s ease;z-index:200;width:420px;max-width:calc(100% - 48px);display:flex;align-items:center;gap:8px;pointer-events:none}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:all}
-.toast-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px}
-.toast-icon{font-size:15px;flex-shrink:0}
-.toast-text{flex:1;line-height:1.4}
-.toast-close{background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:0;line-height:1;flex-shrink:0}
-.toast-close:hover{color:var(--text)}
-.toast-actions{display:flex;gap:8px;justify-content:flex-end}
-.toast-btn{background:none;border:none;font-size:13px;font-weight:500;cursor:pointer;padding:4px 6px;border-radius:6px;line-height:1;white-space:nowrap}
-.toast-btn.primary{color:var(--cat-on-t)}
-.toast-btn.secondary{color:var(--text2)}
-.toast-btn:hover{opacity:.7}
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;opacity:0;pointer-events:none;transition:opacity .3s ease}
-.modal-backdrop.open{opacity:1;pointer-events:all}
-.modal-sheet{position:fixed;bottom:0;left:0;right:0;max-width:700px;margin:0 auto;background:var(--surface);border-radius:20px 20px 0 0;border-top:0.5px solid var(--border);z-index:101;transform:translateY(100%);transition:transform .4s cubic-bezier(0.0,0,0.2,1),background-color .3s ease,border-color .3s ease;max-height:90vh;display:flex;flex-direction:column;position:fixed}
-.modal-sheet.open{transform:translateY(0)}
-.drag-zone{position:relative;flex-shrink:0;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-.drag-zone:active{cursor:grabbing}
-.modal-handle{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:12px auto 0;flex-shrink:0}
-.modal-header{display:flex;align-items:center;padding:12px 52px 12px 20px;user-select:none;-webkit-user-select:none}
-.modal-header h3{font-size:16px;font-weight:600;color:var(--text);margin:0;pointer-events:none;user-select:none;-webkit-user-select:none}
-.modal-close{position:absolute;top:50%;right:16px;transform:translateY(-50%);background:none;border:none;font-size:22px;color:var(--text2);cursor:pointer;padding:0;line-height:1;margin:0;z-index:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%}
-.modal-close:hover{color:var(--text);background:var(--res-bg)}
-.modal-tabs{display:flex;gap:4px;padding:12px 20px 0;overflow-x:auto;flex-shrink:0;scrollbar-width:none;-webkit-mask-image:linear-gradient(to right,transparent 0,black 20px,black calc(100% - 20px),transparent 100%);mask-image:linear-gradient(to right,transparent 0,black 20px,black calc(100% - 20px),transparent 100%)}
-.modal-tabs::-webkit-scrollbar{display:none}
-.modal-tab{padding:6px 14px;font-size:12px;border:0.5px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
-.modal-tab.on{background:var(--btn);color:var(--btn-t);border-color:var(--btn)}
-.modal-body{overflow-y:auto;padding:16px 20px 32px;flex:1}
-.perk-section{margin-bottom:20px}
-.perk-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:8px}
-.perk-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:13px}
-.perk-row:last-child{border-bottom:none}
-.perk-label{color:var(--text2);flex-shrink:0}
-.perk-val{color:var(--text);text-align:right;font-weight:500}
-.perk-val.green{color:var(--green)}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
-.info-card{background:var(--res-bg);border:0.5px solid var(--border);border-radius:10px;padding:10px 12px}
-.info-card-label{font-size:11px;color:var(--text2);margin-bottom:3px}
-.info-card-val{font-size:13px;font-weight:500;color:var(--text)}
-.benefits-btn{width:100%;padding:11px;background:var(--btn);border:none;border-radius:8px;font-size:14px;color:var(--btn-t);cursor:pointer;margin-top:10px;font-weight:500;transition:background-color .3s ease,border-color .3s ease,color .3s ease}
-.benefits-btn:hover{background:var(--btn-h)}
-@media(max-width:480px){
-  body{padding:16px 12px}
-  h1{font-size:19px}
-  .hdr{flex-direction:row;align-items:center}
-  .bank-grid{gap:5px}
-  .bank-btn{width:calc(33.333% - 4px);height:46px;font-size:11px}
-  .cat-grid{grid-template-columns:repeat(3,1fr)}
-  .cat-btn{font-size:11px;padding:8px 2px}
-  .ri{gap:8px}
-  .rname{font-size:13px}
-  .hint{font-size:13px}
-  .sec-header h2{font-size:14px}
-}
-</style>
 </head>
 <body>
+<header>
+  <h1>Cart Scheduler</h1>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+    <span id="sched-date" style="font-size:13px;font-weight:500"></span>
+    <span class="watermark-header">Made by Norm Bottie</span>
+  </div>
+</header>
+<main>
 
-<div class="hdr">
-  <div>
-    <h1>&#x1F4B3; Card Rewards Optimizer</h1>
-    <p class="hint">Add your cards, pick a spending category, and see which earns the most!</p>
+  <div class="step">
+    <div class="step-title">1 — Upload daily overview PDF</div>
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <i class="ti ti-file-upload"></i>
+      <strong>Click to upload or drag &amp; drop</strong>
+      <p>Daily Overview PDF from the scheduling system</p>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" style="display:none">
+    <div class="file-chip" id="file-chip" style="display:none">
+      <i class="ti ti-file-text" style="font-size:16px;color:var(--muted)"></i>
+      <span id="file-chip-name"></span>
+      <button class="rm" onclick="clearFile()">✕</button>
+    </div>
+    <button class="parse-btn" id="parse-btn" onclick="parsePDF()" disabled>
+      <i class="ti ti-sparkles"></i> Parse PDF with AI
+    </button>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px">Text is extracted locally — only the text is sent to AI, not the full PDF file.</p>
+    <div class="status" id="status" style="display:none">
+      <div class="spinner"></div>
+      <span id="status-text"></span>
+    </div>
   </div>
-  <div style="margin-top:4px">
-    <button class="settings-btn" onclick="openSettings()" title="Settings">&#x2699;&#xFE0E;</button>
-  </div>
-</div>
 
-<!-- Step 1 -->
-<div class="section" id="sec1">
-  <div class="sec-header" onclick="toggleSection('sec1')">
-    <h2>Add your cards</h2>
-    <svg class="toggle-icon open" id="sec1-icon" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="11,17 4,5 18,5" fill="currentColor"/></svg>
+  <div class="step" id="assoc-section" style="display:none">
+    <div class="step-title">2 — Associates found</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Toggle per-day exclusions. "No carts" removes from cart scheduling. "No sweep" removes from store sweep.</p>
+    <div class="assoc-grid" id="assoc-grid"></div>
   </div>
-  <div class="sec-body" id="sec1-body">
-    <div class="bank-grid" id="bank-grid"></div>
-    <div class="card-pick" id="card-pick">
-      <select id="csel">
-        <option value="">Choose a card</option>
-      </select>
-      <div class="card-pick-btns">
-        <button class="add-btn" id="add-btn" onclick="addCard()" disabled>Add card</button>
-        <button class="preview-btn-inline" id="preview-btn" onclick="previewCard()" disabled>View benefits</button>
+
+  <div class="step" id="config-section" style="display:none">
+    <div class="step-title">3 — FEC assignment</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Select up to two FECs and their windows. Excluded from carts during those hours. Placed on carts with * only if coverage is short.</p>
+    <div class="fec-section">
+      <div class="fec-box">
+        <label>FEC</label>
+        <select id="fec1-select"></select>
+        <label>From</label>
+        <input type="time" id="fec1-start" value="11:00">
+        <label>To</label>
+        <input type="time" id="fec1-end" value="18:00">
+      </div>
+      <div class="fec-box">
+        <label>Closing FEC</label>
+        <select id="fec2-select"></select>
+        <label>From</label>
+        <input type="time" id="fec2-start" value="18:00">
+        <label>To</label>
+        <input type="time" id="fec2-end" value="22:00">
       </div>
     </div>
   </div>
-  <div id="cards-list" style="padding:0 16px"></div>
-  <div style="padding:0 16px 14px;display:flex;gap:8px;flex-wrap:wrap" id="action-btns">
-    <button class="benefits-btn" id="benefits-btn" onclick="openBenefits()" style="flex:1;display:none">&#x1F50D; View my card benefits</button>
-  </div>
-</div>
 
-<!-- Step 2 -->
-<div class="section" id="step2" style="display:none">
-  <div class="sec-header" onclick="toggleSection('step2')">
-    <h2>Pick a spending category</h2>
-    <svg class="toggle-icon open" id="step2-icon" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="11,17 4,5 18,5" fill="currentColor"/></svg>
-  </div>
-  <div class="sec-body" id="step2-body">
-    <div class="cat-grid">
-      <button class="cat-btn" onclick="pickCat(this,'Dining')">&#x1F37D;&#xFE0F; Dining</button>
-      <button class="cat-btn" onclick="pickCat(this,'Travel')">&#x2708;&#xFE0F; Travel</button>
-      <button class="cat-btn" onclick="pickCat(this,'Groceries')">&#x1F6D2; Groceries</button>
-      <button class="cat-btn" onclick="pickCat(this,'Gas')">&#x26FD; Gas</button>
-      <button class="cat-btn" onclick="pickCat(this,'Streaming')">&#x1F4FA; Streaming</button>
-      <button class="cat-btn" onclick="pickCat(this,'Online Shopping')">&#x1F4E6; Online</button>
-      <button class="cat-btn" onclick="pickCat(this,'Hotels')">&#x1F3E8; Hotels</button>
-      <button class="cat-btn" onclick="pickCat(this,'Drugstore')">&#x1F48A; Drugstore</button>
-      <button class="cat-btn" onclick="pickCat(this,'Transit')">&#x1F68C; Transit</button>
-      <button class="cat-btn" onclick="pickCat(this,'Entertainment')">&#x1F3B5; Entertainment</button>
-      <button class="cat-btn" onclick="pickCat(this,'Rent')">&#x1F3E0; Rent</button>
-      <button class="cat-btn" onclick="pickCat(this,'General')">&#x1F4B0; General</button>
+  <div class="step" id="slots-section" style="display:none">
+    <div class="step-title">4 — Slot configuration (7:00 AM – 10:00 PM)</div>
+    <div class="bulk-row">
+      <label>Set all capacity:</label>
+      <input type="number" id="bulk-cap" min="0" max="10" value="1">
+      <button class="sm-btn" onclick="setAllCap()">Apply</button>
+      <label style="margin-left:8px">Set all type:</label>
+      <select id="bulk-type" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+        <option value="cart">Cart</option>
+        <option value="lot">Lot/Bag</option>
+      </select>
+      <button class="sm-btn" onclick="setAllType()">Apply</button>
     </div>
-    <div id="results"></div>
+    <table class="slot-table">
+      <thead><tr><th>Time</th><th>People</th><th>Type</th></tr></thead>
+      <tbody id="slot-tbody"></tbody>
+    </table>
   </div>
-</div>
 
-<!-- Settings modal -->
-<div class="modal-backdrop" id="settings-backdrop"></div>
-<div class="modal-sheet" id="settings-sheet">
-  <div class="drag-zone">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <h3>&#x2699;&#xFE0E; Settings</h3>
-    </div>
-    <button class="modal-close" onclick="closeSettings()">&#x00D7;</button>
+  <div id="generate-wrap" style="display:none;margin-bottom:16px">
+    <button class="generate-btn" onclick="buildSchedule()">
+      <i class="ti ti-calendar-event"></i> Generate Schedule
+    </button>
   </div>
-  <div class="modal-body" style="padding:16px 20px 40px">
-    <div class="perk-section-title" style="margin-bottom:12px">Appearance</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-      <span style="font-size:13px;color:var(--text)">Dark mode</span>
-      <label class="toggle-wrap" title="Toggle dark mode" style="margin-top:0">
-        <div class="tog">
-          <input type="checkbox" id="dtog" onchange="setDark(this.checked)">
-          <span class="sl"></span>
-        </div>
-      </label>
+
+  <div class="step" id="results-section" style="display:none">
+    <div class="step-title">Shift counts</div>
+    <div style="overflow-x:auto">
+      <table class="counts-table">
+        <thead><tr><th>Name</th><th>Cart window</th><th>Meal</th><th style="text-align:center">Slots</th></tr></thead>
+        <tbody id="counts-tbody"></tbody>
+      </table>
     </div>
-    <div class="perk-section-title" style="margin-bottom:12px">Quarterly 5% categories</div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5">Select which categories are active this quarter for your rotating-category cards. These override the default rates in the optimizer.</p>
-    <div style="margin-bottom:20px">
-      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px">Chase Freedom Flex</div>
-      <div id="flex-cat-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-    </div>
-    <div style="margin-bottom:24px">
-      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px">Discover it Cash Back</div>
-      <div id="discover-cat-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-    </div>
-    <button class="go-btn" onclick="saveSettings()">Save</button>
   </div>
-</div>
 
-<!-- Benefits modal -->
-<div class="modal-backdrop" id="modal-backdrop" onclick="closeBenefits()"></div>
-<div class="modal-sheet" id="modal-sheet">
-  <div class="drag-zone">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <h3 id="modal-title">Card benefits</h3>
+  <div class="step" id="sched-preview" style="display:none">
+    <div class="step-title">Schedule preview</div>
+    <div style="overflow-x:auto">
+      <table class="sched-table">
+        <thead><tr>
+          <th style="width:68px">Time</th>
+          <th style="width:60px">#</th>
+          <th>Associate(s)</th>
+          <th style="width:140px;text-align:center">Store Sweep</th>
+        </tr></thead>
+        <tbody id="sched-tbody"></tbody>
+      </table>
     </div>
-    <button class="modal-close" onclick="closeBenefits()">&#x00D7;</button>
+    <button class="dl-btn" onclick="exportPDF()">
+      <i class="ti ti-download"></i> Download PDF
+    </button>
   </div>
-  <div class="modal-tabs" id="modal-tabs"></div>
-  <div class="modal-body" id="modal-body"></div>
-</div>
 
-<script>
-var myCards=[], selCat=null, selBank=null;
-
-// ── Sync server config ────────────────────────────────────────
-// Update this to your Unraid server's IP and the sync server port
-var SYNC_URL='http://192.168.1.23:3002/sync';
-var syncEnabled=true;
-
-function syncToServer(data){
-  if(!syncEnabled) return;
-  fetch(SYNC_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(data)
-  }).catch(function(){syncEnabled=false;});
-}
-
-function loadFromServer(callback){
-  if(!syncEnabled){callback(null);return;}
-  fetch(SYNC_URL)
-    .then(function(r){return r.json();})
-    .then(function(data){callback(data);})
-    .catch(function(){syncEnabled=false;callback(null);});
-}
-
-// ── Dark mode ────────────────────────────────────────────────
-function setDark(on){
-  document.documentElement.setAttribute('data-theme',on?'dark':'light');
-  var cs=document.querySelector('meta[name="color-scheme"]');
-  if(cs) cs.content=on?'dark':'light';
-  var tc=document.getElementById('theme-color-meta');
-  if(tc) tc.content=on?'#0f1117':'#f8fafc';
-  try{localStorage.setItem('cc_dark',on?'1':'0')}catch(e){}
-  syncToServer({dark:on?'1':'0'});
-}
-(function(){
-  try{
-    var d=localStorage.getItem('cc_dark');
-    if(d==='1'){setDark(true);document.getElementById('dtog').checked=true;}
-    else if(d===null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){
-      setDark(true);document.getElementById('dtog').checked=true;
-    }
-  }catch(e){
-    if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){
-      setDark(true);document.getElementById('dtog').checked=true;
-    }
-  }
-})();
-
-// ── Section collapse ─────────────────────────────────────────
-function saveCollapseState(){
-  try{
-    var state={sec1:document.getElementById('sec1-body').classList.contains('collapsed'),step2:document.getElementById('step2-body').classList.contains('collapsed')};
-    localStorage.setItem('cc_collapse',JSON.stringify(state));
-  }catch(e){}
-}
-
-function toggleSection(id){
-  var section=document.getElementById(id);
-  var body=document.getElementById(id+'-body');
-  var icon=document.getElementById(id+'-icon');
-  var collapsed=body.classList.contains('collapsed');
-  if(collapsed){
-    body.classList.remove('collapsed');
-    if(icon) icon.classList.add('open');
-    if(section) section.classList.remove('sec1-collapsed');
-  } else {
-    body.classList.add('collapsed');
-    if(icon) icon.classList.remove('open');
-    if(section) section.classList.add('sec1-collapsed');
-  }
-  saveCollapseState();
-}
-
-function collapseStep1(){
-  var body=document.getElementById('sec1-body');
-  var icon=document.getElementById('sec1-icon');
-  var section=document.getElementById('sec1');
-  body.classList.add('collapsed');
-  if(icon) icon.classList.remove('open');
-  if(section) section.classList.add('sec1-collapsed');
-  saveCollapseState();
-}
-
-// ── Bank → Cards map ─────────────────────────────────────────
-var BANKS={
-  "Amex":["Amex Gold Card","Amex Platinum Card","Amex Green Card","Amex Blue Cash Preferred","Amex Blue Cash Everyday","Amex Blue Business Plus","Amex Business Gold Card","Delta SkyMiles Gold Amex","Delta SkyMiles Platinum Amex","Delta SkyMiles Reserve Amex","Hilton Honors Amex Surpass","Hilton Honors Amex Aspire","Marriott Bonvoy Brilliant Amex"],
-  "Chase":["Chase Sapphire Preferred","Chase Sapphire Reserve","Chase Freedom Unlimited","Chase Freedom Flex","Chase Ink Business Preferred","Chase Ink Business Unlimited","Chase Ink Business Cash","Chase United Explorer","Chase Marriott Bonvoy Boundless","Chase Southwest Rapid Rewards Plus","Chase Amazon Prime Rewards Visa","Chase British Airways Visa"],
-  "Capital One":["Capital One Venture X","Capital One Venture Rewards","Capital One VentureOne","Capital One Quicksilver","Capital One SavorOne","Capital One Savor","Capital One Spark Miles","Capital One Spark Cash Plus"],
-  "Citi":["Citi Double Cash","Citi Premier","Citi Custom Cash","Citi Strata Premier","Citi Rewards+","Citi Best Buy Card","Costco Anywhere Visa by Citi"],
-  "Bank of America":["BofA Travel Rewards","BofA Premium Rewards","BofA Customized Cash Rewards","BofA Unlimited Cash Rewards","Alaska Airlines Visa Signature"],
-  "Wells Fargo":["Wells Fargo Active Cash","Wells Fargo Autograph","Wells Fargo Autograph Journey"],
-  "Discover":["Discover it Cash Back","Discover it Miles","Discover it Chrome"],
-  "Other":["Bilt Mastercard","Apple Card","PayPal Cashback Mastercard","Synchrony Premier Mastercard"]
-};
-
-function renderBanks(){
-  var g=document.getElementById('bank-grid');
-  g.innerHTML=Object.keys(BANKS).map(function(b){
-    var on=b===selBank?' on':'';
-    return '<button class="bank-btn'+on+'" onclick="pickBank(this,\''+b+'\')">'+b+'</button>';
-  }).join('');
-}
-
-function pickBank(btn,bank){
-  var cardPick=document.getElementById('card-pick');
-  var sel=document.getElementById('csel');
-  // Toggle off if same bank clicked again
-  if(selBank===bank){
-    btn.classList.remove('on');
-    selBank=null;
-    cardPick.classList.remove('open');
-    document.getElementById('add-btn').disabled=true;
-    sel.value='';
-    return;
-  }
-  document.querySelectorAll('.bank-btn').forEach(function(b){b.classList.remove('on')});
-  btn.classList.add('on');
-  selBank=bank;
-  sel.innerHTML='<option value="">Choose a card</option>'+
-    BANKS[bank].map(function(c){return'<option>'+c+'</option>'}).join('');
-  sel.value='';
-  document.getElementById('add-btn').disabled=true;
-  cardPick.classList.add('open');
-}
-
-document.getElementById('csel').addEventListener('change',function(){
-  var has=!!this.value;
-  document.getElementById('add-btn').disabled=!has;
-  document.getElementById('preview-btn').disabled=!has;
-});
-
-function previewCard(){
-  var card=document.getElementById('csel').value;
-  if(!card) return;
-  document.getElementById('modal-title').textContent='Card benefits';
-  document.getElementById('modal-tabs').style.display='none';
-  document.getElementById('modal-backdrop').classList.add('open');
-  document.getElementById('modal-sheet').classList.add('open');
-  document.body.style.overflow='hidden';
-  document.getElementById('quarter-toast').style.opacity='0';document.getElementById('quarter-toast').style.pointerEvents='none';
-  renderModalBody(card);
-}
-
-// ── Persistence ──────────────────────────────────────────────
-function saveCards(){
-  try{localStorage.setItem('cc_cards',JSON.stringify(myCards));}catch(e){}
-  syncToServer({cards:myCards});
-}
-
-function loadCards(){
-  try{
-    var saved=localStorage.getItem('cc_cards');
-    if(saved){myCards=JSON.parse(saved);}
-  }catch(e){myCards=[];}
-}
-
-// ── Add / remove cards ───────────────────────────────────────
-function addCard(){
-  var name=document.getElementById('csel').value;
-  if(!name) return;
-  if(myCards.indexOf(name)>=0){alert('Already added!');return;}
-  myCards.push(name);
-  document.getElementById('csel').value='';
-  document.getElementById('add-btn').disabled=true;
-  saveCards();
-  renderCards();
-}
-
-function removeCard(i){
-  myCards.splice(i,1);
-  saveCards();
-  renderCards();
-  document.getElementById('results').innerHTML='';
-  updateSummary();
-}
-
-function renderCards(){
-  var el=document.getElementById('cards-list');
-  el.innerHTML=myCards.map(function(c,i){
-    return '<div class="chip" data-index="'+i+'">'
-      +'<span class="chip-handle" title="Drag to reorder">&#x2630;</span>'
-      +c
-      +' <button class="rm" onclick="removeCard('+i+')" title="Remove">&#x00D7;</button>'
-      +'</div>';
-  }).join('');
-  el.style.paddingTop=myCards.length?'4px':'0';
-  el.style.paddingBottom=myCards.length?'4px':'0';
-  document.getElementById('step2').style.display=myCards.length?'block':'none';
-  updateBenefitsBtn();
-  initChipDrag();
-}
-
-// ── Chip drag to reorder (touch + mouse) ─────────────────────
-var dragSrcIndex=null;
-
-function initChipDrag(){
-  var el=document.getElementById('cards-list');
-  var chips=Array.from(el.querySelectorAll('.chip'));
-  var draggingChip=null, ghost=null, offsetX=0;
-
-  function getTargetIndex(clientX){
-    var best=null, bestDist=Infinity;
-    chips.forEach(function(chip,i){
-      if(chip===draggingChip) return;
-      var r=chip.getBoundingClientRect();
-      var center=r.left+r.width/2;
-      var dist=Math.abs(clientX-center);
-      if(dist<bestDist){bestDist=dist;best=i;}
-    });
-    return best;
-  }
-
-  function onDragStart(chip, clientX){
-    draggingChip=chip;
-    dragSrcIndex=parseInt(chip.getAttribute('data-index'));
-    offsetX=clientX-chip.getBoundingClientRect().left;
-    chip.classList.add('dragging');
-
-    ghost=chip.cloneNode(true);
-    var r=chip.getBoundingClientRect();
-    ghost.style.cssText='position:fixed;top:'+r.top+'px;left:'+r.left+'px;width:'+r.width+'px;opacity:.9;pointer-events:none;z-index:500;transition:none;border-radius:20px;background:var(--chip-bg);border:1.5px solid var(--cat-on-b);padding:6px 12px;font-size:12px;color:var(--chip-text);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.25)';
-    document.body.appendChild(ghost);
-  }
-
-  var scrollInterval=null;
-
-  function onDragMove(clientX){
-    if(!ghost||!draggingChip) return;
-    ghost.style.left=(clientX-offsetX)+'px';
-    var ti=getTargetIndex(clientX);
-    chips.forEach(function(c){c.classList.remove('drag-over');});
-    if(ti!==null&&ti!==dragSrcIndex) chips[ti].classList.add('drag-over');
-
-    // Auto-scroll the cards-list when dragging near edges
-    var r=el.getBoundingClientRect();
-    var edgeSize=60;
-    if(scrollInterval) clearInterval(scrollInterval);
-    if(clientX<r.left+edgeSize){
-      var speed=Math.round((r.left+edgeSize-clientX)/edgeSize*12);
-      scrollInterval=setInterval(function(){el.scrollLeft-=speed;},16);
-    } else if(clientX>r.right-edgeSize){
-      var speed=Math.round((clientX-(r.right-edgeSize))/edgeSize*12);
-      scrollInterval=setInterval(function(){el.scrollLeft+=speed;},16);
-    }
-  }
-
-  function onDragEnd(clientX){
-    if(scrollInterval){clearInterval(scrollInterval);scrollInterval=null;}
-    if(!draggingChip) return;
-    var ti=getTargetIndex(clientX);
-    chips.forEach(function(c){c.classList.remove('drag-over');});
-    if(ti!==null&&ti!==dragSrcIndex){
-      var moved=myCards.splice(dragSrcIndex,1)[0];
-      myCards.splice(ti,0,moved);
-      saveCards();
-      if(selCat&&document.getElementById('results').querySelector('.res-box')) compare();
-    }
-    if(ghost&&ghost.parentNode) ghost.parentNode.removeChild(ghost);
-    ghost=null; draggingChip=null; dragSrcIndex=null;
-    renderCards();
-  }
-
-  chips.forEach(function(chip){
-    var handle=chip.querySelector('.chip-handle');
-
-    // Mouse
-    handle.addEventListener('mousedown',function(e){
-      e.preventDefault();
-      onDragStart(chip,e.clientX);
-      function onMove(e){onDragMove(e.clientX);}
-      function onUp(e){onDragEnd(e.clientX);document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
-      document.addEventListener('mousemove',onMove);
-      document.addEventListener('mouseup',onUp);
-    });
-
-    // Touch - press and hold to drag on iOS
-    handle.addEventListener('touchstart',function(e){
-      var t=e.touches[0];
-      var holdTimer=setTimeout(function(){
-        e.preventDefault();
-        onDragStart(chip,t.clientX);
-
-        function onMove(ev){
-          ev.preventDefault();
-          onDragMove(ev.touches[0].clientX);
-        }
-        function onEnd(ev){
-          onDragEnd(ev.changedTouches[0].clientX);
-          handle.removeEventListener('touchmove',onMove);
-          handle.removeEventListener('touchend',onEnd);
-        }
-        handle.addEventListener('touchmove',onMove,{passive:false});
-        handle.addEventListener('touchend',onEnd);
-      },350);
-
-      function cancelHold(){
-        clearTimeout(holdTimer);
-        handle.removeEventListener('touchend',cancelHold);
-        handle.removeEventListener('touchmove',cancelHold);
-      }
-      handle.addEventListener('touchend',cancelHold,{once:true});
-      handle.addEventListener('touchmove',cancelHold,{once:true});
-    },{passive:true});
-  });
-}
-
-
-function pickCat(btn,cat){
-  if(selCat===cat){
-    btn.classList.remove('on');
-    selCat=null;
-    var box=document.getElementById('results').querySelector('.res-box');
-    if(box){
-      box.classList.add('animate-out');
-      setTimeout(function(){document.getElementById('results').innerHTML='';},250);
-    }
-    return;
-  }
-  document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('on')});
-  btn.classList.add('on');
-  selCat=cat;
-  compare();
-}
-
-// ── Rewards data ─────────────────────────────────────────────
-var R={
-  "Amex Gold Card":{Dining:{r:"4x points",n:"4x Membership Rewards at restaurants worldwide"},Travel:{r:"3x points",n:"3x on flights booked directly or via Amex Travel"},Groceries:{r:"4x points",n:"4x at US supermarkets (up to $25k/year, then 1x)"},Gas:{r:"1x points",n:"No gas bonus"},Streaming:{r:"1x points",n:"No streaming bonus"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"1x points",n:"1x on hotels; use Amex Platinum for hotel bookings"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"1x points",n:"No transit bonus"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Amex Platinum Card":{Dining:{r:"1x points",n:"No dining bonus; pair with Amex Gold for dining"},Travel:{r:"5x points",n:"5x on flights booked directly or via Amex Travel (up to $500k/year)"},Groceries:{r:"1x points",n:"No grocery bonus"},Gas:{r:"1x points",n:"No gas bonus"},Streaming:{r:"1x points",n:"No streaming bonus"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"5x points",n:"5x on prepaid hotels booked via Amex Travel"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"1x points",n:"No transit bonus"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Amex Green Card":{Dining:{r:"3x points",n:"3x at restaurants worldwide"},Travel:{r:"3x points",n:"3x on travel including flights, hotels, transit, and rideshare"},Groceries:{r:"1x points",n:"No grocery bonus"},Gas:{r:"1x points",n:"No gas bonus"},Streaming:{r:"1x points",n:"No streaming bonus"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"3x points",n:"3x on hotels booked directly"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"3x points",n:"3x on transit including rideshare and taxis"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Amex Blue Cash Preferred":{Dining:{r:"1% cash back",n:"No dining bonus; use a different card for restaurants"},Travel:{r:"1% cash back",n:"No travel bonus"},Groceries:{r:"6% cash back",n:"6% at US supermarkets (up to $6k/year) — best-in-class grocery rate"},Gas:{r:"3% cash back",n:"3% at US gas stations"},Streaming:{r:"6% cash back",n:"6% on select US streaming subscriptions"},"Online Shopping":{r:"1% cash back",n:"No online shopping bonus"},Hotels:{r:"1% cash back",n:"No hotel bonus"},Drugstore:{r:"1% cash back",n:"No drugstore bonus"},Transit:{r:"3% cash back",n:"3% on transit including rideshare, taxis, and parking"},Entertainment:{r:"1% cash back",n:"No entertainment bonus"},Rent:{r:"1% cash back",n:"No rent bonus"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Amex Blue Cash Everyday":{Dining:{r:"1% cash back",n:"No dining bonus"},Travel:{r:"1% cash back",n:"No travel bonus"},Groceries:{r:"3% cash back",n:"3% at US supermarkets (up to $6k/year)"},Gas:{r:"2% cash back",n:"2% at US gas stations"},Streaming:{r:"3% cash back",n:"3% on select US streaming subscriptions"},"Online Shopping":{r:"3% cash back",n:"3% on US online retail purchases (up to $6k/year)"},Hotels:{r:"1% cash back",n:"No hotel bonus"},Drugstore:{r:"1% cash back",n:"No drugstore bonus"},Transit:{r:"1% cash back",n:"No transit bonus"},Entertainment:{r:"1% cash back",n:"No entertainment bonus"},Rent:{r:"1% cash back",n:"No rent bonus"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Amex Blue Business Plus":{Dining:{r:"2x points",n:"Flat 2x Membership Rewards on all purchases (up to $50k/year)"},Travel:{r:"2x points",n:"Flat 2x on all purchases"},Groceries:{r:"2x points",n:"Flat 2x on all purchases"},Gas:{r:"2x points",n:"Flat 2x on all purchases"},Streaming:{r:"2x points",n:"Flat 2x on all purchases"},"Online Shopping":{r:"2x points",n:"Flat 2x on all purchases"},Hotels:{r:"2x points",n:"Flat 2x on all purchases"},Drugstore:{r:"2x points",n:"Flat 2x on all purchases"},Transit:{r:"2x points",n:"Flat 2x on all purchases"},Entertainment:{r:"2x points",n:"Flat 2x on all purchases"},Rent:{r:"2x points",n:"Flat 2x on all purchases"},General:{r:"2x points",n:"Flat 2x on all purchases up to $50k/year"}},
-  "Amex Business Gold Card":{Dining:{r:"4x points",n:"4x in your top 2 spend categories each month (dining may qualify)"},Travel:{r:"4x points",n:"4x in top 2 categories; airfare always 3x"},Groceries:{r:"4x points",n:"4x if groceries is a top-2 spend category"},Gas:{r:"4x points",n:"4x if gas is a top-2 spend category"},Streaming:{r:"4x points",n:"4x if streaming is a top-2 spend category"},"Online Shopping":{r:"4x points",n:"4x if online shopping is a top-2 spend category"},Hotels:{r:"1x points",n:"1x on hotels unless in top-2 category"},Drugstore:{r:"1x points",n:"1x unless in top-2 category"},Transit:{r:"1x points",n:"1x unless in top-2 category"},Entertainment:{r:"1x points",n:"1x unless in top-2 category"},Rent:{r:"1x points",n:"1x on rent"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Delta SkyMiles Gold Amex":{Dining:{r:"2x miles",n:"2x Delta SkyMiles at restaurants worldwide"},Travel:{r:"2x miles",n:"2x on Delta purchases; 1x on other travel"},Groceries:{r:"2x miles",n:"2x at US supermarkets"},Gas:{r:"1x miles",n:"No gas bonus"},Streaming:{r:"1x miles",n:"No streaming bonus"},"Online Shopping":{r:"1x miles",n:"No online shopping bonus"},Hotels:{r:"1x miles",n:"1x on hotels"},Drugstore:{r:"1x miles",n:"No drugstore bonus"},Transit:{r:"1x miles",n:"No transit bonus"},Entertainment:{r:"1x miles",n:"No entertainment bonus"},Rent:{r:"1x miles",n:"No rent bonus"},General:{r:"1x miles",n:"1x on all other purchases"}},
-  "Delta SkyMiles Platinum Amex":{Dining:{r:"3x miles",n:"3x Delta SkyMiles at restaurants worldwide"},Travel:{r:"3x miles",n:"3x on Delta purchases; 1x on other travel"},Groceries:{r:"1x miles",n:"No grocery bonus"},Gas:{r:"1x miles",n:"No gas bonus"},Streaming:{r:"1x miles",n:"No streaming bonus"},"Online Shopping":{r:"1x miles",n:"No online shopping bonus"},Hotels:{r:"1x miles",n:"1x on hotels"},Drugstore:{r:"1x miles",n:"No drugstore bonus"},Transit:{r:"1x miles",n:"No transit bonus"},Entertainment:{r:"1x miles",n:"No entertainment bonus"},Rent:{r:"1x miles",n:"No rent bonus"},General:{r:"1x miles",n:"1x on all other purchases"}},
-  "Delta SkyMiles Reserve Amex":{Dining:{r:"3x miles",n:"3x at restaurants; includes Amex Centurion Lounge access"},Travel:{r:"3x miles",n:"3x on Delta purchases; access to Delta Sky Club"},Groceries:{r:"1x miles",n:"No grocery bonus"},Gas:{r:"1x miles",n:"No gas bonus"},Streaming:{r:"1x miles",n:"No streaming bonus"},"Online Shopping":{r:"1x miles",n:"No online shopping bonus"},Hotels:{r:"1x miles",n:"1x on hotels"},Drugstore:{r:"1x miles",n:"No drugstore bonus"},Transit:{r:"1x miles",n:"No transit bonus"},Entertainment:{r:"1x miles",n:"No entertainment bonus"},Rent:{r:"1x miles",n:"No rent bonus"},General:{r:"1x miles",n:"1x on all other purchases"}},
-  "Hilton Honors Amex Surpass":{Dining:{r:"6x points",n:"6x Hilton Honors points at US restaurants"},Travel:{r:"3x points",n:"3x on all other eligible purchases"},Groceries:{r:"6x points",n:"6x at US supermarkets"},Gas:{r:"6x points",n:"6x at US gas stations"},Streaming:{r:"3x points",n:"3x on all other purchases"},"Online Shopping":{r:"3x points",n:"3x on all other purchases"},Hotels:{r:"12x points",n:"12x at Hilton properties worldwide"},Drugstore:{r:"3x points",n:"3x on all other purchases"},Transit:{r:"3x points",n:"3x on all other purchases"},Entertainment:{r:"3x points",n:"3x on all other purchases"},Rent:{r:"3x points",n:"3x on all other purchases"},General:{r:"3x points",n:"3x on all other eligible purchases"}},
-  "Hilton Honors Amex Aspire":{Dining:{r:"7x points",n:"7x Hilton Honors points at US restaurants"},Travel:{r:"7x points",n:"7x on flights booked directly with airlines"},Groceries:{r:"3x points",n:"3x on all other eligible purchases"},Gas:{r:"3x points",n:"3x on all other purchases"},Streaming:{r:"3x points",n:"3x on all other purchases"},"Online Shopping":{r:"3x points",n:"3x on all other purchases"},Hotels:{r:"14x points",n:"14x at Hilton properties worldwide — top-tier Hilton card"},Drugstore:{r:"3x points",n:"3x on all other purchases"},Transit:{r:"3x points",n:"3x on all other purchases"},Entertainment:{r:"3x points",n:"3x on all other purchases"},Rent:{r:"3x points",n:"3x on all other purchases"},General:{r:"3x points",n:"3x on all other eligible purchases"}},
-  "Marriott Bonvoy Brilliant Amex":{Dining:{r:"6x points",n:"6x Marriott Bonvoy points at restaurants worldwide"},Travel:{r:"3x points",n:"3x on all other eligible purchases"},Groceries:{r:"3x points",n:"3x on all other purchases"},Gas:{r:"3x points",n:"3x on all other purchases"},Streaming:{r:"3x points",n:"3x on all other purchases"},"Online Shopping":{r:"3x points",n:"3x on all other purchases"},Hotels:{r:"6x points",n:"6x at Marriott Bonvoy properties worldwide"},Drugstore:{r:"3x points",n:"3x on all other purchases"},Transit:{r:"3x points",n:"3x on all other purchases"},Entertainment:{r:"3x points",n:"3x on all other purchases"},Rent:{r:"3x points",n:"3x on all other purchases"},General:{r:"3x points",n:"3x on all other eligible purchases"}},
-  "Chase Sapphire Preferred":{Dining:{r:"3x points",n:"3x Ultimate Rewards on dining worldwide"},Travel:{r:"2x points",n:"2x on travel; 5x on Chase Travel portal"},Groceries:{r:"1x points",n:"No grocery bonus"},Gas:{r:"1x points",n:"No gas bonus"},Streaming:{r:"3x points",n:"3x on select streaming services"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"2x points",n:"2x on travel including hotels"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"2x points",n:"2x on travel including transit"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Chase Sapphire Reserve":{Dining:{r:"3x points",n:"3x Ultimate Rewards; points worth 1.5c each via Chase Travel"},Travel:{r:"5x points",n:"5x on flights and 10x on hotels/car rentals via Chase Travel; 3x on all other travel after $300 credit"},Groceries:{r:"1x points",n:"No grocery bonus"},Gas:{r:"1x points",n:"No gas bonus"},Streaming:{r:"1x points",n:"No streaming bonus"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"10x points",n:"10x on hotels via Chase Travel; 3x on hotels booked directly"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"3x points",n:"3x on travel including transit"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Chase Freedom Unlimited":{Dining:{r:"3% cash back",n:"3% on dining; pairs with Sapphire to convert to points"},Travel:{r:"5% cash back",n:"5% on Chase Travel portal; 1.5% on all other travel"},Groceries:{r:"1.5% cash back",n:"Flat 1.5% on all purchases including groceries"},Gas:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Streaming:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},"Online Shopping":{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Hotels:{r:"1.5% cash back",n:"1.5% on hotels (5% via Chase Travel)"},Drugstore:{r:"3% cash back",n:"3% at drugstores"},Transit:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Entertainment:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Rent:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},General:{r:"1.5% cash back",n:"Flat 1.5% unlimited cash back on everything"}},
-  "Chase Freedom Flex":{Dining:{r:"3% cash back",n:"3% on dining; rotating 5% categories may include restaurants"},Travel:{r:"5% cash back",n:"5% on Chase Travel portal; 1% elsewhere"},Groceries:{r:"5% cash back",n:"5% when groceries is a rotating quarterly category"},Gas:{r:"5% cash back",n:"5% when gas is a rotating quarterly category"},Streaming:{r:"1% cash back",n:"1% unless streaming is a rotating quarterly category"},"Online Shopping":{r:"5% cash back",n:"5% when online shopping is a quarterly category"},Hotels:{r:"1% cash back",n:"1% on hotels (5% via Chase Travel)"},Drugstore:{r:"3% cash back",n:"3% at drugstores"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"1% cash back",n:"1% unless entertainment is a quarterly category"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Chase Ink Business Preferred":{Dining:{r:"1x points",n:"No dining bonus"},Travel:{r:"3x points",n:"3x on travel (up to $150k combined/year)"},Groceries:{r:"1x points",n:"No grocery bonus"},Gas:{r:"1x points",n:"No gas bonus"},Streaming:{r:"3x points",n:"3x on streaming services (up to $150k combined)"},"Online Shopping":{r:"3x points",n:"3x on online advertising and shipping"},Hotels:{r:"3x points",n:"3x on travel including hotels"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"3x points",n:"3x on travel including transit"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Chase Ink Business Unlimited":{Dining:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Travel:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Groceries:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Gas:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Streaming:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},"Online Shopping":{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Hotels:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Drugstore:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Transit:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Entertainment:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Rent:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},General:{r:"1.5% cash back",n:"Flat 1.5% unlimited cash back"}},
-  "Chase Ink Business Cash":{Dining:{r:"2% cash back",n:"2% at restaurants (up to $25k combined/year)"},Travel:{r:"1% cash back",n:"1% on travel"},Groceries:{r:"1% cash back",n:"1% on groceries"},Gas:{r:"2% cash back",n:"2% at gas stations (up to $25k combined/year)"},Streaming:{r:"5% cash back",n:"5% on internet, cable, and phone services (up to $25k combined)"},"Online Shopping":{r:"1% cash back",n:"1% on general online shopping; 5% at office supply stores (up to $25k combined)"},Hotels:{r:"1% cash back",n:"1% on hotels"},Drugstore:{r:"1% cash back",n:"1% on drugstores"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"1% cash back",n:"1% on entertainment"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Chase United Explorer":{Dining:{r:"2x miles",n:"2x United MileagePlus miles at restaurants"},Travel:{r:"2x miles",n:"2x on United purchases and hotel stays"},Groceries:{r:"1x miles",n:"1x on groceries"},Gas:{r:"1x miles",n:"1x on gas"},Streaming:{r:"1x miles",n:"1x on streaming"},"Online Shopping":{r:"1x miles",n:"1x on online shopping"},Hotels:{r:"2x miles",n:"2x on hotel stays booked directly"},Drugstore:{r:"1x miles",n:"1x on drugstores"},Transit:{r:"1x miles",n:"1x on transit"},Entertainment:{r:"1x miles",n:"1x on entertainment"},Rent:{r:"1x miles",n:"1x on rent"},General:{r:"1x miles",n:"1x on all other purchases"}},
-  "Chase Marriott Bonvoy Boundless":{Dining:{r:"3x points",n:"3x Marriott Bonvoy points at restaurants"},Travel:{r:"2x points",n:"2x on travel; 6x at Marriott properties"},Groceries:{r:"2x points",n:"2x on grocery stores, gas stations, and select streaming"},Gas:{r:"2x points",n:"2x at gas stations"},Streaming:{r:"2x points",n:"2x on select streaming services"},"Online Shopping":{r:"1x points",n:"1x on online shopping"},Hotels:{r:"6x points",n:"6x at Marriott Bonvoy properties worldwide"},Drugstore:{r:"1x points",n:"1x on drugstores"},Transit:{r:"1x points",n:"1x on transit"},Entertainment:{r:"1x points",n:"1x on entertainment"},Rent:{r:"1x points",n:"1x on rent"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Chase Southwest Rapid Rewards Plus":{Dining:{r:"3x points",n:"3x Rapid Rewards points on dining"},Travel:{r:"2x points",n:"2x on Southwest purchases and hotel/car partners"},Groceries:{r:"2x points",n:"2x at grocery stores"},Gas:{r:"1x points",n:"1x on gas"},Streaming:{r:"2x points",n:"2x on select streaming services"},"Online Shopping":{r:"1x points",n:"1x on online shopping"},Hotels:{r:"2x points",n:"2x on hotel and car rental partner purchases"},Drugstore:{r:"1x points",n:"1x on drugstores"},Transit:{r:"1x points",n:"1x on transit"},Entertainment:{r:"1x points",n:"1x on entertainment"},Rent:{r:"1x points",n:"1x on rent"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Chase Amazon Prime Rewards Visa":{Dining:{r:"2% cash back",n:"2% at restaurants"},Travel:{r:"1% cash back",n:"1% on travel"},Groceries:{r:"5% cash back",n:"5% at Whole Foods and Amazon with Prime membership"},Gas:{r:"2% cash back",n:"2% at gas stations"},Streaming:{r:"1% cash back",n:"1% on streaming"},"Online Shopping":{r:"5% cash back",n:"5% on Amazon.com with Prime membership"},Hotels:{r:"1% cash back",n:"1% on hotels"},Drugstore:{r:"2% cash back",n:"2% at drugstores"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"1% cash back",n:"1% on entertainment"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Chase British Airways Visa":{Dining:{r:"3x points",n:"3x Avios on dining purchases"},Travel:{r:"3x points",n:"3x on British Airways, Iberia, Aer Lingus, and LEVEL purchases"},Groceries:{r:"1x points",n:"1x on groceries"},Gas:{r:"1x points",n:"1x on gas"},Streaming:{r:"1x points",n:"1x on streaming"},"Online Shopping":{r:"1x points",n:"1x on online shopping"},Hotels:{r:"1x points",n:"1x on hotels"},Drugstore:{r:"1x points",n:"1x on drugstores"},Transit:{r:"1x points",n:"1x on transit"},Entertainment:{r:"1x points",n:"1x on entertainment"},Rent:{r:"1x points",n:"1x on rent"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Capital One Venture X":{Dining:{r:"2x miles",n:"Flat 2x miles on all purchases including dining"},Travel:{r:"10x miles",n:"10x on hotels and rental cars; 5x on flights via Capital One Travel"},Groceries:{r:"2x miles",n:"Flat 2x miles on all purchases"},Gas:{r:"2x miles",n:"Flat 2x miles on all purchases"},Streaming:{r:"2x miles",n:"Flat 2x miles on all purchases"},"Online Shopping":{r:"2x miles",n:"Flat 2x miles on all purchases"},Hotels:{r:"10x miles",n:"10x miles on hotels via Capital One Travel"},Drugstore:{r:"2x miles",n:"Flat 2x miles on all purchases"},Transit:{r:"2x miles",n:"Flat 2x miles on all purchases"},Entertainment:{r:"2x miles",n:"Flat 2x miles on all purchases"},Rent:{r:"2x miles",n:"Flat 2x miles on all purchases"},General:{r:"2x miles",n:"Flat 2x miles on all purchases"}},
-  "Capital One Venture Rewards":{Dining:{r:"2x miles",n:"Flat 2x miles on all purchases"},Travel:{r:"5x miles",n:"5x on hotels and rental cars via Capital One Travel; 2x elsewhere"},Groceries:{r:"2x miles",n:"Flat 2x miles on all purchases"},Gas:{r:"2x miles",n:"Flat 2x miles on all purchases"},Streaming:{r:"2x miles",n:"Flat 2x miles on all purchases"},"Online Shopping":{r:"2x miles",n:"Flat 2x miles on all purchases"},Hotels:{r:"5x miles",n:"5x miles on hotels booked via Capital One Travel"},Drugstore:{r:"2x miles",n:"Flat 2x miles on all purchases"},Transit:{r:"2x miles",n:"Flat 2x miles on all purchases"},Entertainment:{r:"2x miles",n:"Flat 2x miles on all purchases"},Rent:{r:"2x miles",n:"Flat 2x miles on all purchases"},General:{r:"2x miles",n:"Flat 2x miles on all purchases"}},
-  "Capital One VentureOne":{Dining:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},Travel:{r:"5x miles",n:"5x on hotels and rental cars via Capital One Travel; 1.25x elsewhere"},Groceries:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},Gas:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},Streaming:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},"Online Shopping":{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},Hotels:{r:"5x miles",n:"5x miles on hotels via Capital One Travel"},Drugstore:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},Transit:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},Entertainment:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},Rent:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"},General:{r:"1.25x miles",n:"Flat 1.25x miles on all purchases"}},
-  "Capital One Quicksilver":{Dining:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Travel:{r:"5% cash back",n:"5% on hotels and rental cars via Capital One Travel; 1.5% elsewhere"},Groceries:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Gas:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Streaming:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},"Online Shopping":{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Hotels:{r:"5% cash back",n:"5% on hotels via Capital One Travel; 1.5% elsewhere"},Drugstore:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Transit:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Entertainment:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Rent:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},General:{r:"1.5% cash back",n:"Flat 1.5% unlimited cash back"}},
-  "Capital One SavorOne":{Dining:{r:"3% cash back",n:"3% at restaurants and food delivery"},Travel:{r:"5% cash back",n:"5% on hotels and rental cars via Capital One Travel"},Groceries:{r:"3% cash back",n:"3% at grocery stores (excluding Walmart/Target)"},Gas:{r:"1% cash back",n:"1% on gas"},Streaming:{r:"3% cash back",n:"3% on select streaming services"},"Online Shopping":{r:"1% cash back",n:"1% on online shopping"},Hotels:{r:"5% cash back",n:"5% on hotels via Capital One Travel"},Drugstore:{r:"1% cash back",n:"1% on drugstores"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"3% cash back",n:"3% on entertainment including concerts, movies, and sporting events"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Capital One Savor":{Dining:{r:"4% cash back",n:"4% at restaurants and food delivery (note: Savor is discontinued; new applicants are directed to SavorOne)"},Travel:{r:"5% cash back",n:"5% on hotels and rental cars via Capital One Travel"},Groceries:{r:"3% cash back",n:"3% at grocery stores"},Gas:{r:"1% cash back",n:"1% on gas"},Streaming:{r:"4% cash back",n:"4% on popular streaming services"},"Online Shopping":{r:"1% cash back",n:"1% on online shopping"},Hotels:{r:"5% cash back",n:"5% on hotels via Capital One Travel"},Drugstore:{r:"1% cash back",n:"1% on drugstores"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"4% cash back",n:"4% on entertainment including concerts, movies, sporting events"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Capital One Spark Miles":{Dining:{r:"2x miles",n:"Flat 2x miles on all purchases"},Travel:{r:"5x miles",n:"5x on hotels and rental cars via Capital One Travel; 2x elsewhere"},Groceries:{r:"2x miles",n:"Flat 2x miles on all purchases"},Gas:{r:"2x miles",n:"Flat 2x miles on all purchases"},Streaming:{r:"2x miles",n:"Flat 2x miles on all purchases"},"Online Shopping":{r:"2x miles",n:"Flat 2x miles on all purchases"},Hotels:{r:"5x miles",n:"5x on hotels via Capital One Travel"},Drugstore:{r:"2x miles",n:"Flat 2x miles on all purchases"},Transit:{r:"2x miles",n:"Flat 2x miles on all purchases"},Entertainment:{r:"2x miles",n:"Flat 2x miles on all purchases"},Rent:{r:"2x miles",n:"Flat 2x miles on all purchases"},General:{r:"2x miles",n:"Flat 2x miles on all purchases"}},
-  "Capital One Spark Cash Plus":{Dining:{r:"2% cash back",n:"Flat 2% cash back on all purchases"},Travel:{r:"5% cash back",n:"5% on hotels and rental cars via Capital One Travel; 2% elsewhere"},Groceries:{r:"2% cash back",n:"Flat 2% on all purchases"},Gas:{r:"2% cash back",n:"Flat 2% on all purchases"},Streaming:{r:"2% cash back",n:"Flat 2% on all purchases"},"Online Shopping":{r:"2% cash back",n:"Flat 2% on all purchases"},Hotels:{r:"5% cash back",n:"5% on hotels via Capital One Travel"},Drugstore:{r:"2% cash back",n:"Flat 2% on all purchases"},Transit:{r:"2% cash back",n:"Flat 2% on all purchases"},Entertainment:{r:"2% cash back",n:"Flat 2% on all purchases"},Rent:{r:"2% cash back",n:"Flat 2% on all purchases"},General:{r:"2% cash back",n:"Flat 2% unlimited cash back"}},
-  "Citi Double Cash":{Dining:{r:"2% cash back",n:"1% when you buy + 1% when you pay — simple and consistent"},Travel:{r:"2% cash back",n:"Flat 2% on all purchases"},Groceries:{r:"2% cash back",n:"Flat 2% on all purchases"},Gas:{r:"2% cash back",n:"Flat 2% on all purchases"},Streaming:{r:"2% cash back",n:"Flat 2% on all purchases"},"Online Shopping":{r:"2% cash back",n:"Flat 2% on all purchases"},Hotels:{r:"2% cash back",n:"Flat 2% on all purchases"},Drugstore:{r:"2% cash back",n:"Flat 2% on all purchases"},Transit:{r:"2% cash back",n:"Flat 2% on all purchases"},Entertainment:{r:"2% cash back",n:"Flat 2% on all purchases"},Rent:{r:"2% cash back",n:"Flat 2% on all purchases"},General:{r:"2% cash back",n:"Flat 2% unlimited cash back — no categories to track"}},
-  "Citi Premier":{Dining:{r:"3x points",n:"3x ThankYou Points at restaurants (note: Citi Premier has been rebranded as Citi Strata Premier)"},Travel:{r:"3x points",n:"3x on air travel and hotels"},Groceries:{r:"3x points",n:"3x at supermarkets"},Gas:{r:"3x points",n:"3x at gas stations"},Streaming:{r:"1x points",n:"No streaming bonus"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"3x points",n:"3x on hotels"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"1x points",n:"No transit bonus"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Citi Custom Cash":{Dining:{r:"5% cash back",n:"5% automatically in your top eligible spend category each billing cycle (up to $500)"},Travel:{r:"5% cash back",n:"5% if travel is your top spend category this billing cycle"},Groceries:{r:"5% cash back",n:"5% if groceries is your top spend category"},Gas:{r:"5% cash back",n:"5% if gas is your top spend category"},Streaming:{r:"5% cash back",n:"5% if streaming is your top spend category"},"Online Shopping":{r:"5% cash back",n:"5% if online shopping is your top spend category"},Hotels:{r:"5% cash back",n:"5% if hotels is your top spend category"},Drugstore:{r:"5% cash back",n:"5% if drugstores is your top spend category"},Transit:{r:"5% cash back",n:"5% if transit is your top spend category"},Entertainment:{r:"5% cash back",n:"5% if entertainment is your top spend category"},Rent:{r:"1% cash back",n:"Rent is not an eligible 5% category; 1% applies"},General:{r:"1% cash back",n:"1% on all non-top-category purchases"}},
-  "Citi Strata Premier":{Dining:{r:"3x points",n:"3x ThankYou Points at restaurants"},Travel:{r:"3x points",n:"3x on air travel and travel agencies"},Groceries:{r:"3x points",n:"3x at supermarkets"},Gas:{r:"3x points",n:"3x at gas stations and EV charging"},Streaming:{r:"1x points",n:"No streaming bonus"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"10x points",n:"10x on hotels and car rentals booked via CitiTravel.com"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"1x points",n:"No transit bonus"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Citi Rewards+":{Dining:{r:"2x points",n:"2x ThankYou Points at restaurants and supermarkets (up to $6k/year combined)"},Travel:{r:"1x points",n:"1x on travel"},Groceries:{r:"2x points",n:"2x at supermarkets (up to $6k/year combined with dining)"},Gas:{r:"1x points",n:"1x on gas"},Streaming:{r:"1x points",n:"1x on streaming"},"Online Shopping":{r:"1x points",n:"1x on online shopping"},Hotels:{r:"1x points",n:"1x on hotels"},Drugstore:{r:"1x points",n:"1x on drugstores"},Transit:{r:"1x points",n:"1x on transit"},Entertainment:{r:"1x points",n:"1x on entertainment"},Rent:{r:"1x points",n:"1x on rent"},General:{r:"1x points",n:"1x; points rounded up to nearest 10"}},
-  "Citi Best Buy Card":{Dining:{r:"2% cash back",n:"2% on eligible dining and bar purchases"},Travel:{r:"1% cash back",n:"1% on all other purchases"},Groceries:{r:"1% cash back",n:"1% on all other purchases"},Gas:{r:"1% cash back",n:"1% on all other purchases"},Streaming:{r:"1% cash back",n:"1% on all other purchases"},"Online Shopping":{r:"5% cash back",n:"5% back in rewards on BestBuy.com and Best Buy store purchases"},Hotels:{r:"1% cash back",n:"1% on all other purchases"},Drugstore:{r:"1% cash back",n:"1% on all other purchases"},Transit:{r:"1% cash back",n:"1% on all other purchases"},Entertainment:{r:"2% cash back",n:"2% on eligible entertainment purchases"},Rent:{r:"1% cash back",n:"1% on all other purchases"},General:{r:"1% cash back",n:"1% on all other purchases; best used for Best Buy purchases"}},
-  "Costco Anywhere Visa by Citi":{Dining:{r:"3% cash back",n:"3% on restaurant and eligible travel purchases"},Travel:{r:"3% cash back",n:"3% on eligible travel purchases worldwide"},Groceries:{r:"2% cash back",n:"2% on all Costco and Costco.com purchases"},Gas:{r:"4% cash back",n:"4% on eligible gas and EV charging (up to $7k/year, then 1%)"},Streaming:{r:"1% cash back",n:"1% on all other purchases"},"Online Shopping":{r:"2% cash back",n:"2% on Costco.com; 1% elsewhere"},Hotels:{r:"3% cash back",n:"3% on eligible travel"},Drugstore:{r:"1% cash back",n:"1% on all other purchases"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"1% cash back",n:"1% on entertainment"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "BofA Travel Rewards":{Dining:{r:"1.5x points",n:"Flat 1.5x; Preferred Rewards members earn up to 2.62x"},Travel:{r:"1.5x points",n:"Flat 1.5x on all purchases including travel"},Groceries:{r:"1.5x points",n:"Flat 1.5x on all purchases"},Gas:{r:"1.5x points",n:"Flat 1.5x on all purchases"},Streaming:{r:"1.5x points",n:"Flat 1.5x on all purchases"},"Online Shopping":{r:"1.5x points",n:"Flat 1.5x on all purchases"},Hotels:{r:"1.5x points",n:"Flat 1.5x on all purchases"},Drugstore:{r:"1.5x points",n:"Flat 1.5x on all purchases"},Transit:{r:"1.5x points",n:"Flat 1.5x on all purchases"},Entertainment:{r:"1.5x points",n:"Flat 1.5x on all purchases"},Rent:{r:"1.5x points",n:"Flat 1.5x on all purchases"},General:{r:"1.5x points",n:"Flat 1.5x on all purchases; no annual fee"}},
-  "BofA Premium Rewards":{Dining:{r:"2x points",n:"2x on dining and travel purchases"},Travel:{r:"2x points",n:"2x on travel purchases"},Groceries:{r:"1.5x points",n:"1.5x on all other purchases"},Gas:{r:"1.5x points",n:"1.5x on all other purchases"},Streaming:{r:"1.5x points",n:"1.5x on all other purchases"},"Online Shopping":{r:"1.5x points",n:"1.5x on all other purchases"},Hotels:{r:"2x points",n:"2x on travel including hotels"},Drugstore:{r:"1.5x points",n:"1.5x on all other purchases"},Transit:{r:"2x points",n:"2x on travel including transit"},Entertainment:{r:"1.5x points",n:"1.5x on all other purchases"},Rent:{r:"1.5x points",n:"1.5x on all other purchases"},General:{r:"1.5x points",n:"1.5x on all other purchases"}},
-  "BofA Customized Cash Rewards":{Dining:{r:"3% cash back",n:"3% in your chosen category (dining may be selected); 2% at grocery stores"},Travel:{r:"3% cash back",n:"3% if travel is your chosen category"},Groceries:{r:"2% cash back",n:"2% at grocery stores and wholesale clubs (up to $2,500/quarter combined)"},Gas:{r:"3% cash back",n:"3% if gas and EV charging is your chosen category"},Streaming:{r:"3% cash back",n:"3% if online shopping/streaming is your chosen category"},"Online Shopping":{r:"3% cash back",n:"3% if online shopping is your chosen category"},Hotels:{r:"3% cash back",n:"3% if travel is your chosen category"},Drugstore:{r:"3% cash back",n:"3% if drug stores is your chosen category"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"1% cash back",n:"1% on entertainment"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "BofA Unlimited Cash Rewards":{Dining:{r:"1.5% cash back",n:"Flat 1.5%; Preferred Rewards members earn up to 2.62%"},Travel:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Groceries:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Gas:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Streaming:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},"Online Shopping":{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Hotels:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Drugstore:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Transit:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Entertainment:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},Rent:{r:"1.5% cash back",n:"Flat 1.5% on all purchases"},General:{r:"1.5% cash back",n:"Flat 1.5% unlimited cash back"}},
-  "Alaska Airlines Visa Signature":{Dining:{r:"1x miles",n:"1x Alaska Mileage Plan miles on dining"},Travel:{r:"3x miles",n:"3x on Alaska Airlines purchases"},Groceries:{r:"1x miles",n:"1x on groceries"},Gas:{r:"2x miles",n:"2x at gas and EV charging stations"},Streaming:{r:"1x miles",n:"1x on streaming"},"Online Shopping":{r:"1x miles",n:"1x on online shopping"},Hotels:{r:"1x miles",n:"1x on hotels"},Drugstore:{r:"1x miles",n:"1x on drugstores"},Transit:{r:"1x miles",n:"1x on transit"},Entertainment:{r:"1x miles",n:"1x on entertainment"},Rent:{r:"1x miles",n:"1x on rent"},General:{r:"1x miles",n:"1x on all other purchases"}},
-  "Wells Fargo Active Cash":{Dining:{r:"2% cash back",n:"Flat 2% unlimited cash rewards on all purchases"},Travel:{r:"2% cash back",n:"Flat 2% on all purchases"},Groceries:{r:"2% cash back",n:"Flat 2% on all purchases"},Gas:{r:"2% cash back",n:"Flat 2% on all purchases"},Streaming:{r:"2% cash back",n:"Flat 2% on all purchases"},"Online Shopping":{r:"2% cash back",n:"Flat 2% on all purchases"},Hotels:{r:"2% cash back",n:"Flat 2% on all purchases"},Drugstore:{r:"2% cash back",n:"Flat 2% on all purchases"},Transit:{r:"2% cash back",n:"Flat 2% on all purchases"},Entertainment:{r:"2% cash back",n:"Flat 2% on all purchases"},Rent:{r:"2% cash back",n:"Flat 2% on all purchases"},General:{r:"2% cash back",n:"Flat 2% unlimited cash back — no categories to track"}},
-  "Wells Fargo Autograph":{Dining:{r:"3x points",n:"3x on restaurants"},Travel:{r:"3x points",n:"3x on airlines, hotels, car rentals, and cruises"},Groceries:{r:"1x points",n:"No grocery bonus"},Gas:{r:"3x points",n:"3x at gas stations and EV charging"},Streaming:{r:"3x points",n:"3x on popular streaming services"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"3x points",n:"3x on hotels"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"3x points",n:"3x on transit and rideshare"},Entertainment:{r:"3x points",n:"3x on entertainment including concerts and sporting events"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Wells Fargo Autograph Journey":{Dining:{r:"3x points",n:"3x on restaurants"},Travel:{r:"4x points",n:"4x on airlines; 3x on other travel"},Groceries:{r:"1x points",n:"No grocery bonus"},Gas:{r:"1x points",n:"No gas bonus"},Streaming:{r:"1x points",n:"No streaming bonus"},"Online Shopping":{r:"1x points",n:"No online shopping bonus"},Hotels:{r:"5x points",n:"5x on hotels booked directly"},Drugstore:{r:"1x points",n:"No drugstore bonus"},Transit:{r:"1x points",n:"No transit bonus"},Entertainment:{r:"1x points",n:"No entertainment bonus"},Rent:{r:"1x points",n:"No rent bonus"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Discover it Cash Back":{Dining:{r:"5% cash back",n:"5% when dining is the rotating quarterly category; 1% otherwise"},Travel:{r:"1% cash back",n:"1% unless travel is a quarterly category"},Groceries:{r:"5% cash back",n:"5% when groceries is a rotating quarterly category"},Gas:{r:"5% cash back",n:"5% when gas is a rotating quarterly category"},Streaming:{r:"1% cash back",n:"1% unless streaming is a quarterly category"},"Online Shopping":{r:"5% cash back",n:"5% when online shopping is a quarterly category"},Hotels:{r:"1% cash back",n:"1% on hotels"},Drugstore:{r:"1% cash back",n:"1% unless drugstores is a quarterly category"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"1% cash back",n:"1% unless entertainment is a quarterly category"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all non-category purchases; first-year cash back matched"}},
-  "Discover it Miles":{Dining:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases; first-year miles matched"},Travel:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Groceries:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Gas:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Streaming:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},"Online Shopping":{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Hotels:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Drugstore:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Transit:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Entertainment:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},Rent:{r:"1.5x miles",n:"Flat 1.5x miles on all purchases"},General:{r:"1.5x miles",n:"Flat 1.5x miles; first-year miles doubled"}},
-  "Discover it Chrome":{Dining:{r:"2% cash back",n:"2% at restaurants (up to $1k/quarter combined with gas)"},Travel:{r:"1% cash back",n:"1% on travel"},Groceries:{r:"1% cash back",n:"1% on groceries"},Gas:{r:"2% cash back",n:"2% at gas stations (up to $1k/quarter combined with dining)"},Streaming:{r:"1% cash back",n:"1% on streaming"},"Online Shopping":{r:"1% cash back",n:"1% on online shopping"},Hotels:{r:"1% cash back",n:"1% on hotels"},Drugstore:{r:"1% cash back",n:"1% on drugstores"},Transit:{r:"1% cash back",n:"1% on transit"},Entertainment:{r:"1% cash back",n:"1% on entertainment"},Rent:{r:"1% cash back",n:"1% on rent"},General:{r:"1% cash back",n:"1% on all other purchases"}},
-  "Bilt Mastercard":{Dining:{r:"3x points",n:"3x Bilt points on dining (must make 5 transactions per statement period to earn points)"},Travel:{r:"2x points",n:"2x on travel purchases"},Groceries:{r:"1x points",n:"1x on groceries"},Gas:{r:"1x points",n:"1x on gas"},Streaming:{r:"1x points",n:"1x on streaming"},"Online Shopping":{r:"1x points",n:"1x on online shopping"},Hotels:{r:"2x points",n:"2x on travel including hotels"},Drugstore:{r:"1x points",n:"1x on drugstores"},Transit:{r:"1x points",n:"1x on transit"},Entertainment:{r:"1x points",n:"1x on entertainment"},Rent:{r:"1x points",n:"1x on rent with no transaction fees — unique benefit among all cards"},General:{r:"1x points",n:"1x on all other purchases"}},
-  "Apple Card":{Dining:{r:"2% cash back",n:"2% Daily Cash via Apple Pay; 1% with physical titanium card"},Travel:{r:"2% cash back",n:"2% via Apple Pay; 1% with physical card"},Groceries:{r:"2% cash back",n:"2% via Apple Pay; 1% with physical card"},Gas:{r:"2% cash back",n:"2% via Apple Pay; 1% with physical card"},Streaming:{r:"3% cash back",n:"3% on Apple subscriptions (TV+, Arcade, Music, etc.)"},"Online Shopping":{r:"3% cash back",n:"3% at Apple Store and select partners like Nike, Uber, Walgreens"},Hotels:{r:"2% cash back",n:"2% via Apple Pay"},Drugstore:{r:"3% cash back",n:"3% at Walgreens and Duane Reade via Apple Pay"},Transit:{r:"2% cash back",n:"2% via Apple Pay"},Entertainment:{r:"2% cash back",n:"2% via Apple Pay"},Rent:{r:"1% cash back",n:"1% if landlord doesn't accept Apple Pay"},General:{r:"2% cash back",n:"2% via Apple Pay on all other purchases"}},
-  "PayPal Cashback Mastercard":{Dining:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},Travel:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},Groceries:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},Gas:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},Streaming:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},"Online Shopping":{r:"3% cash back",n:"3% when paying with PayPal checkout — ideal for online purchases"},Hotels:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},Drugstore:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},Transit:{r:"1.5% cash back",n:"1.5% on transit"},Entertainment:{r:"3% cash back",n:"3% when paying with PayPal; 1.5% elsewhere"},Rent:{r:"1.5% cash back",n:"1.5% on rent"},General:{r:"1.5% cash back",n:"1.5% on all non-PayPal purchases"}},
-  "Synchrony Premier Mastercard":{Dining:{r:"2% cash back",n:"Flat 2% unlimited cash back on all purchases"},Travel:{r:"2% cash back",n:"Flat 2% on all purchases"},Groceries:{r:"2% cash back",n:"Flat 2% on all purchases"},Gas:{r:"2% cash back",n:"Flat 2% on all purchases"},Streaming:{r:"2% cash back",n:"Flat 2% on all purchases"},"Online Shopping":{r:"2% cash back",n:"Flat 2% on all purchases"},Hotels:{r:"2% cash back",n:"Flat 2% on all purchases"},Drugstore:{r:"2% cash back",n:"Flat 2% on all purchases"},Transit:{r:"2% cash back",n:"Flat 2% on all purchases"},Entertainment:{r:"2% cash back",n:"Flat 2% on all purchases"},Rent:{r:"2% cash back",n:"Flat 2% on all purchases"},General:{r:"2% cash back",n:"Flat 2% unlimited cash back — no annual fee"}}
-};
-
-var SM={"14x points":14,"12x points":12,"10x points":10,"10x miles":10,"7x points":7,"6% cash back":6,"6x points":6,"5x points":5,"5% cash back":5,"5x miles":5,"4x points":4,"4% cash back":4,"4x miles":4,"3x points":3,"3% cash back":3,"3x miles":3,"2x points":2,"2% cash back":2,"2x miles":2,"1.5x points":1.5,"1.5% cash back":1.5,"1.5x miles":1.5,"1.25x miles":1.25,"1x points":1,"1% cash back":1,"1x miles":1};
-function sc(r){var n=parseFloat(r);return isNaN(n)?SM[r]||1:n}
-
-// ── Quarterly settings ────────────────────────────────────────
-var CATS_LIST=['Dining','Travel','Groceries','Gas','Streaming','Online Shopping','Hotels','Drugstore','Transit','Entertainment'];
-
-var quarterlyData={
-  "Chase Freedom Flex":[],
-  "Discover it Cash Back":[]
-};
-
-function loadQuarterly(){
-  try{
-    var saved=localStorage.getItem('cc_quarterly');
-    if(saved) quarterlyData=JSON.parse(saved);
-  }catch(e){}
-}
-
-function saveQuarterly(){
-  try{localStorage.setItem('cc_quarterly',JSON.stringify(quarterlyData));}catch(e){}
-  syncToServer({quarterly:quarterlyData});
-}
-
-function getCardRate(card,cat){
-  var base=R[card]&&R[card][cat];
-  if(!base) return{r:'1x points',n:'No specific bonus data available.'};
-  if(quarterlyData.hasOwnProperty(card)&&quarterlyData[card].length){
-    if(quarterlyData[card].indexOf(cat)>=0){
-      return{r:'5% cash back',n:'\u2705 Active quarterly 5% category \u2014 remember to activate in your app'};
-    } else {
-      return{r:'1% cash back',n:'Not an active quarterly bonus category \u2014 earns 1% this quarter'};
-    }
-  }
-  return base;
-}
-
-// ── Drag to close modals ──────────────────────────────────────
-function initDragToClose(sheetId, closeFn){
-  var sheet=document.getElementById(sheetId);
-  var startY=0, currentY=0, dragging=false;
-
-  function onStart(y){
-    startY=y; currentY=y; dragging=true;
-    sheet.style.transition='none';
-  }
-  function onMove(y){
-    if(!dragging) return;
-    currentY=y;
-    var dy=Math.max(0,y-startY);
-    sheet.style.transform='translateY('+dy+'px)';
-  }
-  function onEnd(){
-    if(!dragging) return;
-    dragging=false;
-    sheet.style.transition='';
-    var dy=currentY-startY;
-    if(dy>80){
-      sheet.style.transform='';
-      closeFn();
-    } else {
-      sheet.style.transform='';
-    }
-  }
-
-  // Touch
-  sheet.addEventListener('touchstart',function(e){
-    var touch=e.touches[0];
-    if(e.target.closest('.drag-zone')) onStart(touch.clientY);
-  },{passive:true});
-  sheet.addEventListener('touchmove',function(e){
-    if(!dragging) return;
-    onMove(e.touches[0].clientY);
-  },{passive:true});
-  sheet.addEventListener('touchend',onEnd);
-
-  // Mouse
-  sheet.addEventListener('mousedown',function(e){
-    if(e.target.closest('.drag-zone')&&!e.target.closest('.modal-close')) onStart(e.clientY);
-  });
-  document.addEventListener('mousemove',function(e){if(dragging) onMove(e.clientY);});
-  document.addEventListener('mouseup',onEnd);
-}
-
-
-// ── Quarterly toast reminder ──────────────────────────────────
-function getCurrentQuarterKey(){
-  var d=new Date();
-  return Math.floor(d.getMonth()/3)+1+'_'+d.getFullYear();
-}
-
-function checkQuarterChange(){
-  try{
-    var stored=localStorage.getItem('cc_last_quarter');
-    var current=getCurrentQuarterKey();
-    if(stored!==current){
-      setTimeout(function(){
-        document.getElementById('quarter-toast').classList.add('show');
-      },1200);
-    }
-  }catch(e){}
-}
-
-function dismissToast(){
-  var toast=document.getElementById('quarter-toast');
-  toast.classList.remove('show');
-  try{localStorage.setItem('cc_last_quarter',getCurrentQuarterKey());}catch(e){}
-  syncToServer({last_quarter:getCurrentQuarterKey()});
-}
-
-function snoozeToast(){
-  document.getElementById('quarter-toast').classList.remove('show');
-  // Don't save the quarter key — will reappear on next load
-}
-
-function openSettingsFromToast(){
-  dismissToast();
-  openSettings();
-}
-
-function debugResetQuarter(){
-  try{localStorage.removeItem('cc_last_quarter');}catch(e){}
-  document.getElementById('quarter-toast').classList.remove('show');
-  setTimeout(function(){
-    document.getElementById('quarter-toast').classList.add('show');
-  },400);
-}
-
-function openSettings(){
-  renderSettingsCatGrid('flex-cat-grid','Chase Freedom Flex');
-  renderSettingsCatGrid('discover-cat-grid','Discover it Cash Back');
-  document.getElementById('settings-backdrop').classList.add('open');
-  document.getElementById('settings-sheet').classList.add('open');
-  document.body.style.overflow='hidden';
-  document.getElementById('quarter-toast').style.opacity='0';document.getElementById('quarter-toast').style.pointerEvents='none';
-}
-
-function closeBenefits(){
-  document.getElementById('modal-backdrop').classList.remove('open');
-  document.getElementById('modal-sheet').classList.remove('open');
-  document.body.style.overflow='';
-  setTimeout(function(){
-    var t=document.getElementById('quarter-toast');
-    t.style.transition='opacity .25s ease,transform .4s ease';
-    t.style.opacity='';
-    t.style.pointerEvents='';
-  },400);
-}
-
-function closeSettings(){
-  document.getElementById('settings-backdrop').classList.remove('open');
-  document.getElementById('settings-sheet').classList.remove('open');
-  document.body.style.overflow='';
-  setTimeout(function(){
-    var t=document.getElementById('quarter-toast');
-    t.style.transition='opacity .25s ease,transform .4s ease';
-    t.style.opacity='';
-    t.style.pointerEvents='';
-  },400);
-}
-
-function renderSettingsCatGrid(gridId,card){
-  var grid=document.getElementById(gridId);
-  var active=quarterlyData[card]||[];
-  grid.innerHTML=CATS_LIST.map(function(cat){
-    var on=active.indexOf(cat)>=0;
-    return '<button class="cat-btn'+(on?' on':'')+'" style="font-size:12px;padding:7px 10px" onclick="toggleQCat(this,\''+card+'\',\''+cat+'\')">'+cat+'</button>';
-  }).join('');
-}
-
-function toggleQCat(btn,card,cat){
-  var arr=quarterlyData[card]||[];
-  var idx=arr.indexOf(cat);
-  if(idx>=0){ arr.splice(idx,1); btn.classList.remove('on'); }
-  else{ arr.push(cat); btn.classList.add('on'); }
-  quarterlyData[card]=arr;
-}
-
-function saveSettings(){
-  saveQuarterly();
-  closeSettings();
-  if(selCat&&document.getElementById('results').querySelector('.res-box')) compare();
-}
-
-function compare(){
-  if(!selCat||!myCards.length) return;
-  collapseStep1();
-  var hasResults=!!document.getElementById('results').querySelector('.res-box');
-  var ranked=myCards.map(function(card){
-    var d=getCardRate(card,selCat);
-    return{card:card,rate:d.r,note:d.n,sc:sc(d.r)};
-  }).sort(function(a,b){return b.sc-a.sc});
-  var animClass=hasResults?'animate-fade':'animate';
-  document.getElementById('results').innerHTML='<div class="res-box '+animClass+'">'+
-    ranked.map(function(r,i){
-      return '<div class="ri">'+
-        '<div class="rank'+(i===0?' gold':'')+'">'+( i===0?'&#x2605;':i+1)+'</div>'+
-        '<div class="rinfo">'+
-          '<div class="rname">'+r.card+(i===0?'<span class="badge">Best choice</span>':'')+'</div>'+
-          '<div class="rrate">'+r.rate+'</div>'+
-          '<div class="rnote">'+r.note+'</div>'+
-        '</div></div>';
-    }).join('')+'</div>';
-}
-
-// ── Card perks database ──────────────────────────────────────
-var PERKS={
-  "Amex Gold Card":{fee:"$325/year",base:"1x on all other purchases",perks:["$120 dining credit ($10/mo at Grubhub, Cheesecake Factory, etc.)","$120 Uber Cash ($10/mo, Uber Eats or Uber rides)","$100 Resy credit","No foreign transaction fees","Travel and purchase protections"]},
-  "Amex Platinum Card":{fee:"$695/year",base:"1x on all other purchases",perks:["$200 hotel credit (prepaid Fine Hotels + Resorts or The Hotel Collection)","$200 airline fee credit","$240 digital entertainment credit","$155 Walmart+ credit","$300 Equinox credit","$200 Uber Cash","$189 CLEAR Plus credit","Global Lounge Collection access (Centurion, Priority Pass, Delta, etc.)","TSA PreCheck or Global Entry fee credit","No foreign transaction fees"]},
-  "Amex Green Card":{fee:"$150/year",base:"1x on all other purchases",perks:["$189 CLEAR Plus credit","$100 LoungeBuddy credit","No foreign transaction fees","Trip delay and cancellation insurance","Purchase protection"]},
-  "Amex Blue Cash Preferred":{fee:"$0 first year, then $95/year",base:"1% on all other purchases",perks:["0% intro APR on purchases for 12 months","Return protection","Extended warranty","Purchase protection","No welcome bonus on Disney Bundle or Equinox+ credits"]},
-  "Amex Blue Cash Everyday":{fee:"$0",base:"1% on all other purchases",perks:["0% intro APR on purchases for 15 months","Return protection","Extended warranty","Purchase protection","No foreign transaction fees"]},
-  "Amex Blue Business Plus":{fee:"$0",base:"1x after $50k/year (then 1x)",perks:["Employee cards at no additional cost","Extended warranty","Purchase protection","No foreign transaction fees","Points transfer to Amex airline and hotel partners"]},
-  "Amex Business Gold Card":{fee:"$375/year",base:"1x on all other purchases",perks:["4x in top 2 spend categories each month (auto-adjusts)","$240 flexible business credit ($20/mo on eligible purchases)","No foreign transaction fees","Extended warranty","Purchase protection","Employee cards at no additional cost"]},
-  "Delta SkyMiles Gold Amex":{fee:"$0 first year, then $150/year",base:"1x on all other purchases",perks:["First checked bag free on Delta flights","20% savings on in-flight purchases","Priority boarding","No foreign transaction fees","$200 Delta flight credit after $10k spend/year"]},
-  "Delta SkyMiles Platinum Amex":{fee:"$350/year",base:"1x on all other purchases",perks:["First checked bag free on Delta flights","Companion certificate each year","15% discount on award redemptions","Priority boarding","TSA PreCheck/Global Entry credit","No foreign transaction fees","$2,500 MQDs each calendar year"]},
-  "Delta SkyMiles Reserve Amex":{fee:"$650/year",base:"1x on all other purchases",perks:["Delta Sky Club access (15 visits/year; unlimited with $75k spend)","Amex Centurion Lounge access","First checked bag free","Companion certificate each year","TSA PreCheck/Global Entry credit","No foreign transaction fees","$2,500 MQDs each calendar year"]},
-  "Hilton Honors Amex Surpass":{fee:"$150/year",base:"3x on all other eligible purchases",perks:["Hilton Honors Gold status","10 Priority Pass lounge visits per year","Free night reward after $15k spend/year","No foreign transaction fees","Complimentary 5th night free on award stays of 5+ nights"]},
-  "Hilton Honors Amex Aspire":{fee:"$550/year",base:"3x on all other eligible purchases",perks:["Hilton Honors Diamond status (top tier)","$400 Hilton resort credit","$200 airline fee credit","$100 on-property credit at Waldorf Astoria and Conrad","Priority Pass Select membership","Free night reward each year","No foreign transaction fees"]},
-  "Marriott Bonvoy Brilliant Amex":{fee:"$650/year",base:"2x on all other eligible purchases",perks:["Marriott Bonvoy Platinum Elite status","$300 dining credit","$100 on-property credit at Ritz-Carlton and St. Regis","Free night award up to 85,000 points each year","Priority Pass Select membership (unlimited visits)","Global Entry or TSA PreCheck credit","No foreign transaction fees"]},
-  "Chase Sapphire Preferred":{fee:"$95/year",base:"1x on all other purchases",perks:["Points worth 1.25c each via Chase Travel","Transfer to 14 airline and hotel partners at 1:1","$50 annual hotel credit via Chase Travel","Trip cancellation/interruption insurance","Primary car rental insurance","No foreign transaction fees","Extended warranty and purchase protection"]},
-  "Chase Sapphire Reserve":{fee:"$550/year",base:"1x on all other purchases",perks:["Points worth 1.5c each via Chase Travel","Transfer to 14 airline and hotel partners at 1:1","$300 annual travel credit (auto-applied)","Priority Pass Select lounge access (unlimited)","Global Entry or TSA PreCheck credit","Primary car rental insurance","Trip cancellation/interruption insurance","No foreign transaction fees"]},
-  "Chase Freedom Unlimited":{fee:"$0",base:"1.5% on all other purchases",perks:["0% intro APR for 15 months","Pairs with Sapphire cards to convert cash back to points","Trip cancellation insurance","Extended warranty","Purchase protection","No annual fee"]},
-  "Chase Freedom Flex":{fee:"$0",base:"1% on all other purchases",perks:["0% intro APR for 15 months","5% categories rotate quarterly (activate each quarter, up to $1,500)","Pairs with Sapphire cards to convert cash back to points","Cell phone protection","Trip cancellation insurance","No annual fee"]},
-  "Chase Ink Business Preferred":{fee:"$95/year",base:"1x on all other purchases",perks:["Points worth 1.25c each via Chase Travel","Transfer to 14 airline and hotel partners at 1:1","Cell phone protection (up to $1,000/claim, 3 claims/year)","Trip cancellation insurance","No foreign transaction fees","Employee cards at no additional cost"]},
-  "Chase Ink Business Unlimited":{fee:"$0",base:"1.5% on all other purchases",perks:["Pairs with Ink Preferred or Sapphire to convert to points","0% intro APR for 12 months","Purchase protection","Extended warranty","No foreign transaction fees","Employee cards at no additional cost"]},
-  "Chase Ink Business Cash":{fee:"$0",base:"1% on all other purchases",perks:["Pairs with Ink Preferred or Sapphire to convert to points","0% intro APR for 12 months","Purchase protection","Extended warranty","No foreign transaction fees","Employee cards at no additional cost"]},
-  "Chase United Explorer":{fee:"$0 first year, then $95/year",base:"1x on all other purchases",perks:["First checked bag free (you and one companion)","2 United Club one-time passes per year","25% back on United in-flight purchases","Priority boarding","Global Entry or TSA PreCheck credit","No foreign transaction fees"]},
-  "Chase Marriott Bonvoy Boundless":{fee:"$95/year",base:"1x on all other purchases",perks:["Marriott Bonvoy Silver Elite status","1 Free Night Award each year (up to 35,000 points)","15 Elite Night Credits each year","No foreign transaction fees","Complimentary 5th night free on award stays of 5+ nights"]},
-  "Chase Southwest Rapid Rewards Plus":{fee:"$69/year",base:"1x on all other purchases",perks:["2 EarlyBird Check-In credits per year","3,000 bonus points each cardmember anniversary","25% back on in-flight purchases","No foreign transaction fees","Counts toward Companion Pass qualification"]},
-  "Chase Amazon Prime Rewards Visa":{fee:"$0 (requires Prime membership)",base:"1% on all other purchases",perks:["No annual fee (Prime membership required)","No foreign transaction fees","Extended warranty","Travel and emergency assistance","Baggage delay insurance"]},
-  "Chase British Airways Visa":{fee:"$95/year",base:"1x on all other purchases",perks:["10% off British Airways flights when booking with Avios","Travel Together Ticket after $30k spend/year (companion award ticket)","No foreign transaction fees","Trip cancellation and interruption insurance","Lost luggage reimbursement"]},
-  "Capital One Venture X":{fee:"$395/year",base:"2x on all other purchases",perks:["$300 annual travel credit via Capital One Travel","10,000 bonus miles every anniversary","Priority Pass lounge access (unlimited)","Capital One Lounge access","Global Entry or TSA PreCheck credit","No foreign transaction fees","Transfer to 15+ airline and hotel partners","Travel accident and car rental insurance"]},
-  "Capital One Venture Rewards":{fee:"$95/year",base:"2x on all other purchases",perks:["Global Entry or TSA PreCheck credit","Transfer to 15+ airline and hotel partners","No foreign transaction fees","Travel accident insurance","Extended warranty","Purchase protection"]},
-  "Capital One VentureOne":{fee:"$0",base:"1.25x on all other purchases",perks:["No annual fee","No foreign transaction fees","Transfer to 15+ airline and hotel partners","Travel accident insurance","Extended warranty"]},
-  "Capital One Quicksilver":{fee:"$0",base:"1.5% on all other purchases",perks:["No annual fee","No foreign transaction fees","Extended warranty","Travel accident insurance","Purchase protection"]},
-  "Capital One SavorOne":{fee:"$0",base:"1% on all other purchases",perks:["No annual fee","No foreign transaction fees","Extended warranty","Travel accident insurance","Purchase protection"]},
-  "Capital One Savor":{fee:"$95/year (discontinued)",base:"1% on all other purchases",perks:["No foreign transaction fees","Extended warranty","Travel accident insurance","Purchase protection"]},
-  "Capital One Spark Miles":{fee:"$0 first year, then $95/year",base:"2x on all other purchases",perks:["Global Entry or TSA PreCheck credit","Transfer to 15+ airline and hotel partners","No foreign transaction fees","Extended warranty","Purchase protection","Employee cards at no additional cost"]},
-  "Capital One Spark Cash Plus":{fee:"$150/year",base:"2% on all other purchases",perks:["No preset spending limit","$200 annual cash bonus after $200k spend/year","No foreign transaction fees","Extended warranty","Purchase protection","Employee cards at no additional cost"]},
-  "Citi Double Cash":{fee:"$0",base:"2% on all other purchases (1% when you buy + 1% when you pay)",perks:["No annual fee","0% intro APR on balance transfers for 18 months","Late fee waiver first time","Citi Entertainment access","Identity theft protection"]},
-  "Citi Premier":{fee:"$95/year (rebranded as Citi Strata Premier)",base:"1x on all other purchases",perks:["$100 annual hotel benefit on $500+ hotel bookings","Transfer to 15+ airline partners","No foreign transaction fees","Citi Entertainment access","Trip cancellation protection"]},
-  "Citi Custom Cash":{fee:"$0",base:"1% on all other purchases",perks:["No annual fee","5% automatically applied to top eligible spend category each billing cycle (up to $500)","0% intro APR for 15 months","Citi Entertainment access","Identity theft protection"]},
-  "Citi Strata Premier":{fee:"$95/year",base:"1x on all other purchases",perks:["$100 annual hotel benefit on $500+ hotel bookings via CitiTravel.com","10x on hotels and car rentals via CitiTravel.com","Transfer to 15+ airline partners","No foreign transaction fees","Citi Entertainment access","Trip cancellation and interruption insurance"]},
-  "Citi Rewards+":{fee:"$0",base:"1x (rounded up to nearest 10 points)",perks:["No annual fee","Points rounded up to nearest 10 on every purchase","10% points back on first 100,000 points redeemed per year","0% intro APR for 15 months","Citi Entertainment access"]},
-  "Citi Best Buy Card":{fee:"$0",base:"1% on all other purchases",perks:["No annual fee","Deferred financing promotions at Best Buy","Free shipping on Best Buy purchases","Early access to sales events","0% promotional financing offers available"]},
-  "Costco Anywhere Visa by Citi":{fee:"$0 (requires Costco membership)",base:"1% on all other purchases",perks:["No annual fee (Costco membership required ~$65-$130/year)","Rewards paid annually as a certificate redeemable at Costco","No foreign transaction fees","Damage and theft purchase protection","Extended warranty","Travel accident insurance"]},
-  "BofA Travel Rewards":{fee:"$0",base:"1.5x on all other purchases",perks:["No annual fee","No foreign transaction fees","Points never expire","Preferred Rewards members earn 25-75% more points","Chip and travel insurance","Lost luggage reimbursement"]},
-  "BofA Premium Rewards":{fee:"$95/year",base:"1.5x on all other purchases",perks:["$100 airline incidental credit","$100 Global Entry or TSA PreCheck credit","No foreign transaction fees","Preferred Rewards members earn up to 75% more points","Trip delay insurance","Lost luggage reimbursement"]},
-  "BofA Customized Cash Rewards":{fee:"$0",base:"1% on all other purchases",perks:["No annual fee","Choose your 3% category (gas, online shopping, dining, travel, drug stores, or home improvement)","Can change category once per calendar month","Preferred Rewards members earn 25-75% more cash back","0% intro APR for 18 billing cycles","No expiration on rewards"]},
-  "BofA Unlimited Cash Rewards":{fee:"$0",base:"1.5% on all other purchases",perks:["No annual fee","No foreign transaction fees","Preferred Rewards members earn up to 2.62% on all purchases","0% intro APR for 18 billing cycles","No expiration on rewards"]},
-  "Alaska Airlines Visa Signature":{fee:"$75/year",base:"1x on all other purchases",perks:["Companion Fare each year from $122 ($99 + taxes/fees)","Free checked bag for you and up to 6 companions","20% back on Alaska purchases","No foreign transaction fees","Alaska Lounge+ membership discount"]},
-  "Wells Fargo Active Cash":{fee:"$0",base:"2% on all other purchases",perks:["No annual fee","0% intro APR for 15 months","Cell phone protection (up to $600, $25 deductible)","Visa Signature concierge service","No foreign transaction fees"]},
-  "Wells Fargo Autograph":{fee:"$0",base:"1x on all other purchases",perks:["No annual fee","0% intro APR for 12 months","Cell phone protection (up to $600, $25 deductible)","Auto rental collision damage waiver","No foreign transaction fees","Roadside dispatch"]},
-  "Wells Fargo Autograph Journey":{fee:"$95/year",base:"1x on all other purchases",perks:["$50 annual airline credit","Transfer to airline partners","Cell phone protection","No foreign transaction fees","Auto rental collision damage waiver","Trip cancellation and interruption protection"]},
-  "Discover it Cash Back":{fee:"$0",base:"1% on all other purchases",perks:["No annual fee","No foreign transaction fees","Free Social Security number alerts","Free FICO credit score","Freeze account in app","No late fee on first late payment"]},
-  "Discover it Miles":{fee:"$0",base:"1.5x on all other purchases",perks:["No annual fee","No foreign transaction fees","Redeem miles for travel statement credits or cash","Free FICO credit score","Freeze account in app","No late fee on first late payment"]},
-  "Discover it Chrome":{fee:"$0",base:"1% on all other purchases",perks:["No annual fee","No foreign transaction fees","Free FICO credit score","Freeze account in app","No late fee on first late payment"]},
-  "Bilt Mastercard":{fee:"$0",base:"1x on all other purchases (must make 5 transactions/month)",perks:["No annual fee","No transaction fees on rent payments","Transfer to 14 airline and hotel partners at 1:1","Double points on first day of each month (Rent Day)","Cell phone protection","Purchase protection","No foreign transaction fees","Trip cancellation insurance"]},
-  "Apple Card":{fee:"$0",base:"1% with physical card; 2% via Apple Pay",perks:["No annual fee","No late fees, no foreign transaction fees, no over-limit fees","Daily Cash deposited to Apple Cash the next day","0% financing on Apple purchases with monthly installments","Titanium physical card","No card number (stored in Wallet app for security)","Weekly and monthly spending summaries in Wallet app"]},
-  "PayPal Cashback Mastercard":{fee:"$0",base:"1.5% on all other purchases",perks:["No annual fee","No foreign transaction fees","Cash back deposited directly to PayPal balance","No minimum redemption","Visa/Mastercard purchase protections"]},
-  "Synchrony Premier Mastercard":{fee:"$0",base:"2% on all other purchases",perks:["No annual fee","No foreign transaction fees","Cash back deposited as statement credit","No category restrictions","Mastercard ID Theft Protection"]}
-};
-
-// ── Benefits modal ────────────────────────────────────────────
-var activeBenefitsCard=null;
-
-function openBenefits(){
-  if(!myCards.length) return;
-  document.getElementById('modal-title').textContent='My card benefits';
-  document.getElementById('modal-tabs').style.display='flex';
-  document.getElementById('modal-backdrop').classList.add('open');
-  document.getElementById('modal-sheet').classList.add('open');
-  document.body.style.overflow='hidden';
-  document.getElementById('quarter-toast').style.opacity='0';document.getElementById('quarter-toast').style.pointerEvents='none';
-  renderModalTabs(myCards[0]);
-}
-
-
-function renderModalTabs(selectedCard){
-  activeBenefitsCard=selectedCard;
-  var tabs=document.getElementById('modal-tabs');
-  tabs.innerHTML=myCards.map(function(c){
-    var on=c===selectedCard?' on':'';
-    return '<button class="modal-tab'+on+'" onclick="renderModalTabs(\''+c.replace(/'/g,"\\'")+'\')">'+(c.split(' ').slice(0,3).join(' '))+'</button>';
-  }).join('');
-  renderModalBody(selectedCard);
-}
-
-function renderModalBody(card){
-  var p=PERKS[card];
-  var rates=R[card];
-  var body=document.getElementById('modal-body');
-  if(!p||!rates){body.innerHTML='<p style="color:var(--text2);font-size:14px">No data available for this card.</p>';return;}
-
-  // Use getCardRate so quarterly overrides are applied
-  var effectiveRates=Object.keys(rates).map(function(cat){
-    var d=getCardRate(card,cat);
-    return{cat:cat,rate:d.r,note:d.n,sc:sc(d.r)};
-  });
-  var topCats=effectiveRates.slice().sort(function(a,b){return b.sc-a.sc}).slice(0,5);
-
-  body.innerHTML=
-    '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px">'+card+'</div>'+
-    '<div class="info-grid">'+
-      '<div class="info-card"><div class="info-card-label">Annual fee</div><div class="info-card-val">'+(p.fee||'N/A')+'</div></div>'+
-      '<div class="info-card"><div class="info-card-label">Base reward</div><div class="info-card-val">'+(p.base||'N/A')+'</div></div>'+
-    '</div>'+
-    '<div class="perk-section" style="margin-top:16px">'+
-      '<div class="perk-section-title">Top earning categories</div>'+
-      topCats.map(function(c){
-        return '<div class="perk-row"><span class="perk-label">'+c.cat+'</span><div style="text-align:right"><span class="perk-val green">'+c.rate+'</span>'+(c.note?'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+c.note+'</div>':'')+'</div></div>';
-      }).join('')+
-    '</div>'+
-    '<div class="perk-section" style="margin-top:16px">'+
-      '<div class="perk-section-title">All category rates</div>'+
-      effectiveRates.map(function(c){
-        return '<div class="perk-row"><span class="perk-label">'+c.cat+'</span><div style="text-align:right"><span class="perk-val green">'+c.rate+'</span>'+(c.note?'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+c.note+'</div>':'')+'</div></div>';
-      }).join('')+
-    '</div>'+
-    '<div class="perk-section" style="margin-top:16px">'+
-      '<div class="perk-section-title">Card perks</div>'+
-      (p.perks||[]).map(function(pk){
-        return '<div class="perk-row"><span style="color:var(--green);margin-right:8px">&#x2713;</span><span style="font-size:13px;color:var(--text)">'+pk+'</span></div>';
-      }).join('')+
-    '</div>';
-}
-
-function updateBenefitsBtn(){
-  var btn=document.getElementById('benefits-btn');
-  if(btn) btn.style.display=myCards.length?'block':'none';
-}
-
-// ── Init ─────────────────────────────────────────────────────
-// Load from localStorage first for instant display
-loadCards();
-loadQuarterly();
-renderBanks();
-renderCards();
-checkQuarterChange();
-
-// Then fetch from server and update if newer/different
-loadFromServer(function(serverData){
-  if(!serverData) return;
-  var changed=false;
-  if(serverData.cards&&JSON.stringify(serverData.cards)!==JSON.stringify(myCards)){
-    myCards=serverData.cards;
-    try{localStorage.setItem('cc_cards',JSON.stringify(myCards));}catch(e){}
-    changed=true;
-  }
-  if(serverData.quarterly&&JSON.stringify(serverData.quarterly)!==JSON.stringify(quarterlyData)){
-    quarterlyData=serverData.quarterly;
-    try{localStorage.setItem('cc_quarterly',JSON.stringify(quarterlyData));}catch(e){}
-    changed=true;
-  }
-  if(serverData.last_quarter){
-    try{localStorage.setItem('cc_last_quarter',serverData.last_quarter);}catch(e){}
-    // Hide toast if already dismissed on another device this quarter
-    if(serverData.last_quarter===getCurrentQuarterKey()){
-      var t=document.getElementById('quarter-toast');
-      if(t) t.classList.remove('show');
-    }
-  }
-  if(serverData.dark!==null&&serverData.dark!==undefined){
-    var serverDark=serverData.dark==='1';
-    var localDark=localStorage.getItem('cc_dark')==='1';
-    if(serverDark!==localDark){
-      setDark(serverDark);
-      try{localStorage.setItem('cc_dark',serverDark?'1':'0');}catch(e){}
-      var dtog=document.getElementById('dtog');
-      if(dtog) dtog.checked=serverDark;
-    }
-  }
-  if(changed){
-    renderCards();
-    if(selCat) compare();
-  }
-});
-
-// Event listeners that need DOM to be ready
-document.getElementById('settings-backdrop').addEventListener('click',function(e){
-  if(e.target===this) closeSettings();
-});
-document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){closeBenefits();closeSettings();}
-});
-initDragToClose('settings-sheet', closeSettings);
-initDragToClose('modal-sheet', closeBenefits);
-
-// Restore collapse state
-(function(){
-  try{
-    var state=JSON.parse(localStorage.getItem('cc_collapse')||'{}');
-    ['sec1','step2'].forEach(function(id){
-      if(state[id]){
-        var section=document.getElementById(id);
-        var body=document.getElementById(id+'-body');
-        var icon=document.getElementById(id+'-icon');
-        var summary=document.getElementById(id+'-summary');
-        if(body){
-          // Suppress ALL transitions during initial restore to prevent flicker
-          body.style.transition='none';
-          body.style.opacity='0';
-          body.classList.add('collapsed');
-          // Re-enable after two animation frames to ensure paint has happened
-          requestAnimationFrame(function(){
-            requestAnimationFrame(function(){
-              body.style.transition='';
-              body.style.opacity='';
-            });
-          });
-        }
-        if(icon){icon.classList.remove('open');}
-        if(section){section.classList.add('sec1-collapsed');}
-        if(summary){summary.classList.add('visible');}
-      }
-    });
-  }catch(e){}
-})();
-
-// ── Service worker registration ───────────────────────────────
-if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){
-    navigator.serviceWorker.register('service-worker.js').catch(function(){});
-  });
-}
-</script>
-
-<div class="toast" id="quarter-toast">
-  <span class="toast-icon">&#x1F4C5;</span>
-  <span class="toast-text">New quarter: be sure to update quarterly 5% categories!</span>
-  <div style="display:flex;gap:4px;flex-shrink:0;align-items:center">
-    <button class="toast-btn secondary" onclick="snoozeToast()">Later</button>
-    <button class="toast-btn primary" onclick="openSettingsFromToast()">Update</button>
-  </div>
-  <button class="toast-close" onclick="dismissToast()">&#x00D7;</button>
-</div>
-
-<div style="text-align:center;padding:24px 0 8px;font-size:12px;color:var(--text2);opacity:0.5;user-select:none">
-  Made with Claude
-  &nbsp;&nbsp;
-  <button onclick="debugResetQuarter()" style="background:none;border:none;font-size:11px;color:var(--text2);cursor:pointer;padding:0;opacity:0.5;font-family:inherit">&#x1F41B;</button>
-</div>
+</main>
+<script src="app.js"></script>
 </body>
 </html>
