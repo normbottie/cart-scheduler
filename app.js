@@ -283,20 +283,26 @@ async function parsePDF(){
 
     setStatus('Analyzing with AI...');
 
-    const prompt=`Parse this retail Daily Overview shift schedule. It may be a PDF or one or more photos of printed pages. Extract ALL associates whose job class is one of: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all other job classes.
+    const prompt=`You are reading a retail store Daily Overview shift schedule shown in the attached image(s). Each image is one page.
 
-For each qualifying associate return:
-- name: "First Last" format (convert "Last, First"; strip [m] [mm] prefixes; fix ALL CAPS names to Title Case)
-- job: exactly one of "fsc", "cashier", "css", "cstl", "csm", "mgr"
-- cartStart: start of earliest CS-Bag segment e.g. "9:00am", null if none
-- cartEnd: end of latest CS-Bag segment, null if none
-- mealStart: from Meals column (rightmost), null if none
-- mealEnd: from Meals column, null if none
-- autoFecSegments: [{start,end}] for CS-FEC role segments, [] if none
-- csCleaningSegments: [{start,end}] for CS-Cleaning segments, [] if none
-- csFloorCareSegments: [{start,end}] for CS-Floor Care segments, [] if none
+The schedule has columns: Associate name | Job class | Shift/Roles (time ranges with role codes) | Meals (rightmost).
 
-Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a valid JSON array, no markdown.`;
+Extract ALL associates whose Job class says: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all others.
+
+Return a JSON array where each object has these exact keys:
+"name" (string: First Last - reverse Last,First format, strip [m]/[mm] prefixes, fix ALL CAPS to Title Case),
+"job" (string: "fsc"=Front Service Clerk, "cashier"=Cashier, "css"=Customer Service Staff, "cstl"=Cust Serv Team Leader, "csm"=CS Manager, "mgr"=other manager),
+"cartStart" (string like "6:45am" = start of CS-Bag role, or null),
+"cartEnd" (string like "1:00pm" = end of CS-Bag role, or null),
+"mealStart" (string from Meals column or null),
+"mealEnd" (string from Meals column or null),
+"autoFecSegments" (array of {start,end} for CS-FEC roles, or []),
+"csCleaningSegments" (array of {start,end} for CS-Cleaning roles, or []),
+"csFloorCareSegments" (array of {start,end} for CS-Floor Care roles, or []).
+
+Times are like "06:45 AM" - convert to "6:45am". Multiple CS-Bag segments: use earliest start and latest end. Ignore handwriting.
+
+IMPORTANT: Start your entire response with [ and end with ]. No markdown, no explanation.\`;
 
     // Build content array from scanned images
     setStatus(`Reading ${scannedPages.length} page(s)...`);
