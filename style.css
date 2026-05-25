@@ -201,3 +201,8 @@ input,textarea,select{
 .merge-btn{color:var(--amber);}
 .merge-btn:hover{color:var(--red);}
 .split-spacer{display:inline-block;width:24px;}
+
+/* ── History ── */
+.history-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px;}
+.history-row:last-child{border-bottom:none;}
+.history-date{display:flex;align-items:center;gap:6px;color:var(--text);}

@@ -86,6 +86,7 @@ window.addEventListener('load',()=>{
   checkTerms();
   initSlots();
   renderPermNoCartMenu();
+  renderHistory();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   // PDF upload removed
   // Close menu on outside click
@@ -400,8 +401,23 @@ async function parsePDF(){
       return;
     }
 
+    // Extract date from the schedule image
     const now=new Date();
     scheduleDate=`${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}/${now.getFullYear().toString().slice(-2)}`;
+    try{
+      const dateRes=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:20,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:scannedPages[0].mediaType||'image/jpeg',data:scannedPages[0].b64}},
+            {type:'text',text:'What is the date shown on this schedule? Reply with ONLY the date in MM/DD/YY format, e.g. 05/24/26. Nothing else.'}
+          ]}],_rawParse:true})});
+      if(dateRes.ok){
+        const dateData=await dateRes.json();
+        const dateTxt=((dateData.content||[]).map(b=>b.text||'').join('')).trim();
+        const dateMatch=dateTxt.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if(dateMatch) scheduleDate=`${dateMatch[1].padStart(2,'0')}/${dateMatch[2].padStart(2,'0')}/${dateMatch[3].slice(-2)}`;
+      }
+    }catch(e){console.warn('Date extraction failed:',e.message);}
     // sched-date removed from header
     // scheduleDate is still used for PDF filename
 
@@ -891,6 +907,70 @@ Example: [{"time":"7:00am","capacity":1,"type":"lot"},{"time":"7:30am","capacity
 
 // ── Print PDF ─────────────────────────────────────────────────────────────────
 
+
+// ── History ───────────────────────────────────────────────────────────────────
+const HISTORY_KEY='cart-scheduler-history';
+const HISTORY_DAYS=7;
+
+function loadHistory(){
+  try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');}catch(e){return [];}
+}
+
+function saveToHistory(scheduleDate,pdfDataUri){
+  const history=loadHistory();
+  const now=Date.now();
+  const cutoff=now-HISTORY_DAYS*24*60*60*1000;
+  // Remove entries older than 7 days
+  const filtered=history.filter(h=>h.ts>cutoff);
+  // Remove duplicate for same date
+  const deduped=filtered.filter(h=>h.date!==scheduleDate);
+  // Add new entry (store compressed — just the dataUri)
+  deduped.unshift({date:scheduleDate,ts:now,pdf:pdfDataUri});
+  // Keep max 14 entries as safety
+  try{
+    localStorage.setItem(HISTORY_KEY,JSON.stringify(deduped.slice(0,14)));
+  }catch(e){
+    // Storage full — remove oldest and try again
+    try{localStorage.setItem(HISTORY_KEY,JSON.stringify(deduped.slice(0,7)));}catch(e2){}
+  }
+  renderHistory();
+}
+
+function renderHistory(){
+  const history=loadHistory();
+  const container=document.getElementById('history-list');
+  const section=document.getElementById('history-section');
+  if(!container||!section)return;
+  if(history.length===0){section.style.display='none';return;}
+  section.style.display='block';
+  container.innerHTML='';
+  history.forEach(h=>{
+    const div=document.createElement('div');div.className='history-row';
+    const dateStr=h.date||'Unknown date';
+    const viewBtn=document.createElement('button');
+    viewBtn.className='sm-btn';viewBtn.textContent='View PDF';
+    viewBtn.onclick=(function(d){return function(){viewHistoryPDF(d);};})(h.date);
+    div.innerHTML='<span class="history-date"><i class="ti ti-calendar"></i> '+dateStr+'</span>';
+    div.appendChild(viewBtn);
+    container.appendChild(div);
+  });
+}
+
+function viewHistoryPDF(date){
+  const history=loadHistory();
+  const entry=history.find(h=>h.date===date);
+  if(!entry){alert('Could not find this schedule.');return;}
+  const iframe=document.createElement('iframe');
+  iframe.style.cssText='position:fixed;inset:0;width:100%;height:100%;border:none;z-index:9999;background:white;';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕ Close';
+  closeBtn.style.cssText='position:fixed;top:12px;right:12px;z-index:10000;padding:8px 14px;background:#1a1a1a;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;';
+  closeBtn.onclick=()=>{document.body.removeChild(iframe);document.body.removeChild(closeBtn);};
+  iframe.src=entry.pdf;
+  document.body.appendChild(iframe);
+  document.body.appendChild(closeBtn);
+}
+
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 function buildSchedule(){
   applySplitRange(); // apply any 15-min range settings first
@@ -1161,6 +1241,8 @@ async function exportPDF(){
   var jsPDF=window.jspdf.jsPDF;
   var s=lastSchedule;
   var doc=buildPDFDoc(jsPDF,s.schedule,s.fec1Name,s.fec2Name,s.scheduleDate);
+  // Save to history
+  try{saveToHistory(s.scheduleDate,doc.output('datauristring'));}catch(e){console.warn('History save failed:',e);}
   doc.save('Cart Schedule '+s.scheduleDate.replace(/\//g,'-')+'.pdf');
 }
 

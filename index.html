@@ -234,6 +234,19 @@
   <div id="results-section" style="display:none"></div>
   <div id="sched-preview" style="display:none"></div>
 
+  <!-- History -->
+  <div id="history-section" style="display:none;margin-top:8px">
+    <div class="step">
+      <div class="step-header" onclick="collapseStep('history')">
+        <span class="step-num"><i class="ti ti-history" style="font-size:12px"></i></span>
+        <span class="step-label">Recent schedules <span class="expand-hint">— tap to view</span></span>
+        <span class="step-icon" id="history-icon">▾</span>
+      </div>
+      <div id="history-body">
+        <div id="history-list"></div>
+      </div>
+    </div>
+  </div>
 </main>
 <script src="app.js"></script>
 
