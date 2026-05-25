@@ -1,5 +1,5 @@
 // ── Config — swap this URL after deploying your Cloudflare Worker ──────────────
-const WORKER_URL = 'https://cart-scheduler-proxy.YOUR-SUBDOMAIN.workers.dev';
+const WORKER_URL = 'https://cart-scheduler-proxy.normbottie.workers.dev';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function t(h,m,pm=false){if(pm&&h!==12)h+=12;if(!pm&&h===12)h=0;return h*60+m;}
