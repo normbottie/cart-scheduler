@@ -185,7 +185,7 @@ function clearFile(){
 
 // ── Scan functions ───────────────────────────────────────────────────────────
 function addScannedPage(file){
-  if(scannedPages.length>=3){alert('Maximum 3 pages.');return;}
+
   // Clear PDF if switching to scan mode
   if(currentFile){
     currentFile=null;
@@ -231,13 +231,13 @@ function renderScanPreviews(){
       <button class="scan-thumb-rm" onclick="removeScannedPage(${i})">✕</button>
     </div>
   `).join('');
-  addBtn.style.display=scannedPages.length>=3?'none':'flex';
+  addBtn.style.display='flex';
 }
 
 // ── Parse PDF ─────────────────────────────────────────────────────────────────
 async function parsePDF(){
-  if(!currentFile)return;
-  setStatus('Reading PDF...');
+  if(!currentFile && scannedPages.length===0)return;
+  setStatus('Preparing...');
   document.getElementById('parse-btn').disabled=true;
 
   try{
@@ -286,10 +286,11 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
     // Build content array — PDF or images
     let contentArr;
     if(scannedPages.length>0){
-      // Images from camera
+      // Images from camera - interleave with text for multi-page context
+      setStatus(`Analyzing ${scannedPages.length} scanned page(s) with AI...`);
       contentArr=[
-        ...scannedPages.map(p=>({type:'image',source:{type:'base64',media_type:p.mediaType,data:p.b64}})),
-        {type:'text',text:prompt}
+        {type:'text',text:`This is a ${scannedPages.length}-page retail Daily Overview shift schedule. Each image is one page. ${prompt}`},
+        ...scannedPages.map((p,i)=>({type:'image',source:{type:'base64',media_type:p.mediaType||'image/jpeg',data:p.b64}})),
       ];
     } else {
       // PDF upload
