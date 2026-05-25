@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CartSched">
@@ -21,7 +21,6 @@
     <h1>Cart Scheduler</h1>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-    <span id="sched-date" style="font-size:13px;font-weight:500"></span>
     <span class="watermark-header">Made by Norm Bottie</span>
   </div>
 </header>
@@ -32,7 +31,7 @@
   <p style="font-size:11px;color:var(--muted);margin-bottom:10px">These associates are always excluded from carts across all days. Syncs to this device.</p>
   <div id="perm-list"></div>
   <div style="display:flex;gap:6px;margin-top:10px">
-    <input type="text" id="perm-input" placeholder="Associate name..." style="flex:1;padding:6px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+    <input type="text" id="perm-input" placeholder="Associate name..." style="flex:1;padding:6px 8px;font-size:16px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
     <button class="sm-btn" onclick="addPermNoCart()">Add</button>
   </div>
 </div>
@@ -49,7 +48,7 @@
     <div id="step1-body">
 
       <div class="sub-step">
-        <div class="sub-step-title"><span class="sub-step-num">A</span> Take a picture of each page of the Daily Overview Schedule (add as many pages as needed)</div>
+        <div class="sub-step-title">Take a picture of each page of the Daily Overview Schedule <span class="sub-hint">(add as many pages as needed)</span></div>
         
         <input type="file" id="scan-input" accept="image/*" capture="environment" style="display:none">
         <div id="scan-previews" style="margin-top:4px">
@@ -64,7 +63,7 @@
       </div>
 
       <div class="sub-step" style="margin-top:16px">
-        <div class="sub-step-title"><span class="sub-step-num">B</span> Take a picture of the Cart Service Schedule <span style="font-size:11px;color:var(--muted);font-weight:400">(optional, you can manually edit required number of associates later)</span></div>
+        <div class="sub-step-title">Take a picture of the Cart Service Schedule <span class="sub-hint">(optional, you can manually edit required number of associates later)</span></div>
         
         <input type="file" id="cart-sched-input" accept="image/*" capture="environment" style="display:none">
         <div class="scan-thumbs" style="margin-top:4px">
@@ -109,7 +108,7 @@
       <div id="auto-fec-callout" style="display:none;margin-bottom:12px;padding:10px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)"></div>
       <div id="fec-suggestion" style="display:none;margin-bottom:10px"></div>
       <div class="fec-section">
-        <div class="fec-box">
+        <div class="fec-box" id="fec1-box">
           <label>Day FEC</label>
           <select id="fec1-select"></select>
           <label>From</label>
