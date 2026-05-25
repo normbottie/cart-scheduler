@@ -171,9 +171,7 @@ function clearFile(){
   cartSchedImage=null;
   clearCartSched();
   renderScanPreviews();
-  document.getElementById('drop-zone').style.display='block';
-  document.getElementById('upload-divider') && (document.getElementById('upload-divider').style.display='');
-  document.getElementById('file-chip').style.display='none';
+
   document.getElementById('parse-btn').disabled=true;
   employees=[];
   ['step2','step3','step4','generate-wrap','step5','step6'].forEach(id=>{
