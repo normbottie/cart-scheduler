@@ -312,7 +312,7 @@ IMPORTANT - Names that wrap to two lines: Some associate names are too long to f
 Extract ALL associates whose Job class says: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all others.
 
 Return a JSON array where each object has these exact keys:
-"name" (string: First Last - reverse Last,First format, strip [m]/[mm] prefixes, fix ALL CAPS to Title Case. If name wraps two lines, combine first),
+"name" (string: Names are listed as "Last, First" — you MUST reverse them to "First Last". Example: "Giordano, Cyan" becomes "Cyan Giordano", "Lafayette, Tony" becomes "Tony Lafayette". Strip [m]/[mm] prefixes. Fix ALL CAPS to Title Case. If name wraps two lines, combine before reversing),
 "job" (string: "fsc"=Front Service Clerk, "cashier"=Cashier, "css"=Customer Service Staff, "cstl"=Cust Serv Team Leader, "csm"=CS Manager, "mgr"=other manager),
 "cartStart" (string: start time of CS-Bag role. CRITICAL: 06:45 AM = "6:45am", 01:00 PM = "1:00pm", 12:00 PM = "12:00pm". Times before 12 with AM are morning, times with PM are afternoon/evening. null if no CS-Bag),
 "cartEnd" (string: end time of CS-Bag role, same format, null if none),
