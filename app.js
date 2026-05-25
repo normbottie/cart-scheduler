@@ -110,7 +110,7 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
 
     const raw=data.content.map(b=>b.text||'').join('');
     // Strip any markdown fences and find the JSON array
-    let clean=raw.replace(/```json|```/g,'').trim();
+    let clean=raw.replace(/```json|```/gi,'').replace(/^[\s\S]*?(?=\[)/,'').trim();
     // Extract just the JSON array if there's surrounding text
     const arrMatch=clean.match(/\[[\s\S]*\]/);
     if(arrMatch) clean=arrMatch[0];
