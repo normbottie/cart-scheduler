@@ -67,7 +67,7 @@ window.addEventListener('load',()=>{
   initSlots();
   renderPermNoCartMenu();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  document.getElementById('file-input').addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0]);});
+  // PDF upload removed - no file-input listener needed
   const dz=document.getElementById('drop-zone');
   dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
