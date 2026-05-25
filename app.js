@@ -1,4 +1,4 @@
-// ── Config — swap this URL after deploying your Cloudflare Worker ──────────────
+// ── Config ────────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://cart-scheduler-proxy.normbottie.workers.dev';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -6,7 +6,28 @@ function t(h,m,pm=false){if(pm&&h!==12)h+=12;if(!pm&&h===12)h=0;return h*60+m;}
 function minsToStr(m){const h=Math.floor(m/60),mn=m%60,ap=h>=12?'PM':'AM',h12=h%12||12;return`${h12}:${mn.toString().padStart(2,'0')} ${ap}`;}
 function timeToMins(s){if(!s)return null;s=s.trim().toLowerCase();const m=s.match(/(\d+):(\d+)\s*(am|pm)/);if(!m)return null;let h=parseInt(m[1]),mn=parseInt(m[2]),ap=m[3];if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60+mn;}
 function timeInputToMins(v){if(!v)return null;const[h,m]=v.split(':').map(Number);return h*60+m;}
-function firstLast(n){const p=n.trim().split(' ');return p.length===1?n:p[0]+' '+p[p.length-1][0]+'.';}
+
+// Convert "JOHN DOE" or "john doe" to "John Doe"
+function toTitleCase(n){return n.replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());}
+// Normalize name: fix all-caps, return "First Last"
+function normalizeName(n){
+  if(!n)return n;
+  n=n.trim();
+  if(n===n.toUpperCase()&&n.length>2)n=toTitleCase(n);
+  return n;
+}
+// First name + last initial for PDF
+function firstLast(n){
+  n=normalizeName(n);
+  const p=n.trim().split(' ');
+  return p.length===1?n:p[0]+' '+p[p.length-1][0]+'.';
+}
+
+// ── Persistent no-carts list (localStorage) ───────────────────────────────────
+const PERM_KEY='cart-scheduler-permanent-no-carts';
+function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PERM_KEY)||'[]'));}catch(e){return new Set();}}
+function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));}
+let permNoCart=loadPermNoCart();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let employees=[], scheduleDate='', slotCaps={}, slotTypes={}, lastSchedule=null;
@@ -16,14 +37,78 @@ const SLOTS=[];for(let m=7*60;m<22*60;m+=30)SLOTS.push(m);
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
   initSlots();
+  renderPermNoCartMenu();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   document.getElementById('file-input').addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0]);});
   const dz=document.getElementById('drop-zone');
   dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
+  // Close menu on outside click
+  document.addEventListener('click',e=>{
+    const menu=document.getElementById('perm-menu');
+    if(menu&&!menu.contains(e.target)&&!document.getElementById('menu-btn').contains(e.target)){
+      menu.style.display='none';
+    }
+  });
 });
 
+// ── Permanent no-cart menu ────────────────────────────────────────────────────
+function toggleMenu(){
+  const m=document.getElementById('perm-menu');
+  m.style.display=m.style.display==='block'?'none':'block';
+}
+function renderPermNoCartMenu(){
+  const list=document.getElementById('perm-list');
+  if(!list)return;
+  list.innerHTML='';
+  if(permNoCart.size===0){
+    list.innerHTML='<div style="font-size:12px;color:var(--muted);padding:6px 0">No permanent exclusions</div>';
+    return;
+  }
+  permNoCart.forEach(name=>{
+    const div=document.createElement('div');
+    div.className='perm-row';
+    div.innerHTML=`<span>${name}</span><button onclick="removePermNoCart('${name.replace(/'/g,"\\'")}')">✕</button>`;
+    list.appendChild(div);
+  });
+}
+function addPermNoCart(){
+  const inp=document.getElementById('perm-input');
+  const name=inp.value.trim();
+  if(!name)return;
+  permNoCart.add(normalizeName(name));
+  savePermNoCart(permNoCart);
+  inp.value='';
+  renderPermNoCartMenu();
+}
+function removePermNoCart(name){
+  permNoCart.delete(name);
+  savePermNoCart(permNoCart);
+  renderPermNoCartMenu();
+}
+
+// ── Collapsible steps ─────────────────────────────────────────────────────────
+function collapseStep(id){
+  const body=document.getElementById(id+'-body');
+  const icon=document.getElementById(id+'-icon');
+  if(!body)return;
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  if(icon)icon.textContent=isOpen?'▸':'▾';
+}
+function openStep(id){
+  const body=document.getElementById(id+'-body');
+  const icon=document.getElementById(id+'-icon');
+  if(body){body.style.display='block';if(icon)icon.textContent='▾';}
+}
+function closeStep(id){
+  const body=document.getElementById(id+'-body');
+  const icon=document.getElementById(id+'-icon');
+  if(body){body.style.display='none';if(icon)icon.textContent='▸';}
+}
+
+// ── Slots ─────────────────────────────────────────────────────────────────────
 function initSlots(){
   SLOTS.forEach(m=>{slotCaps[m]=getDefaultCap(m);slotTypes[m]='cart';});
   renderSlotTable();
@@ -50,7 +135,7 @@ function clearFile(){
   document.getElementById('parse-btn').disabled=true;
   employees=[];
   ['assoc-section','config-section','slots-section','generate-wrap','results-section','sched-preview'].forEach(id=>{
-    document.getElementById(id).style.display='none';
+    const el=document.getElementById(id);if(el)el.style.display='none';
   });
   setStatus('');
 }
@@ -63,30 +148,28 @@ async function parsePDF(){
 
   try{
     const b64=await fileToB64(currentFile);
-
     const now=new Date();
     scheduleDate=`${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}/${now.getFullYear().toString().slice(-2)}`;
-    // Try to extract date from PDF filename
     const dm=currentFile.name.match(/(\d{1,2})[_\-\/](\d{1,2})[_\-\/](\d{2,4})/);
     if(dm) scheduleDate=`${dm[1].padStart(2,'0')}/${dm[2].padStart(2,'0')}/${dm[3].slice(-2)}`;
     document.getElementById('sched-date').textContent=scheduleDate;
 
     setStatus('Analyzing with AI...');
 
-    const prompt=`Parse this retail "Daily Overview" shift schedule PDF. Extract ALL associates whose job class is one of: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager role. Skip all other job classes.
+    const prompt=`Parse this retail Daily Overview shift schedule PDF. Extract ALL associates whose job class is one of: Front Service Clerk, Cashier, Customer Service Staff, Cust Serv Team Leader, Customer Service Manager, or any Manager. Skip all other job classes.
 
 For each qualifying associate return:
-- name: "First Last" (convert "Last, First" format; strip [m] [mm] prefixes)
+- name: "First Last" format (convert "Last, First"; strip [m] [mm] prefixes; fix ALL CAPS names to Title Case)
 - job: exactly one of "fsc", "cashier", "css", "cstl", "csm", "mgr"
-- cartStart: start of their earliest CS-Bag segment (e.g. "9:00am"), null if no CS-Bag
-- cartEnd: end of their latest CS-Bag segment, null if no CS-Bag
+- cartStart: start of earliest CS-Bag segment e.g. "9:00am", null if none
+- cartEnd: end of latest CS-Bag segment, null if none
 - mealStart: from Meals column (rightmost), null if none
 - mealEnd: from Meals column, null if none
-- autoFecSegments: [{start,end}] for any CS-FEC role segments, [] if none
+- autoFecSegments: [{start,end}] for CS-FEC role segments, [] if none
 - csCleaningSegments: [{start,end}] for CS-Cleaning segments, [] if none
 - csFloorCareSegments: [{start,end}] for CS-Floor Care segments, [] if none
 
-Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a valid JSON array, no markdown fences.`;
+Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a valid JSON array, no markdown.`;
 
     const res=await fetch(WORKER_URL,{
       method:'POST',
@@ -101,24 +184,27 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
       })
     });
 
-    if(!res.ok){
-      let errText='';try{errText=await res.text();}catch(e){}
-      throw new Error(`Worker error ${res.status}: ${errText}`);
-    }
+    if(!res.ok){let e='';try{e=await res.text();}catch(x){}throw new Error(`Worker error ${res.status}: ${e}`);}
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    if(!data.success) throw new Error('Worker could not parse AI response: '+(data.error||data.raw||'unknown'));
-    employees=data.employees;
-    // Strip any markdown fences and find the JSON array
-    // parsing handled above
+    if(!data.success) throw new Error('Could not parse PDF response: '+(data.raw||'unknown error'));
+
+    // Normalize names
+    employees=data.employees.map(e=>({...e,name:normalizeName(e.name)}));
+    excludeFromCarts=new Set([...permNoCart].filter(n=>employees.some(e=>e.name===n)));
     excludeFromSweep=new Set();
 
     setStatus('');
+    closeStep('step1');
     renderAssociates();
     renderFECOptions();
-    ['assoc-section','config-section','slots-section','generate-wrap'].forEach(id=>{
-      document.getElementById(id).style.display='block';
-    });
+    openStep('step2');
+    openStep('step3');
+    openStep('step4');
+    document.getElementById('assoc-section').style.display='block';
+    document.getElementById('config-section').style.display='block';
+    document.getElementById('slots-section').style.display='block';
+    document.getElementById('generate-wrap').style.display='block';
     document.getElementById('assoc-section').scrollIntoView({behavior:'smooth'});
   }catch(err){
     setStatus('Error: '+err.message);
@@ -129,22 +215,14 @@ Time format: "9:00am", "1:30pm". Ignore handwritten annotations. Return ONLY a v
 function setStatus(msg){
   const el=document.getElementById('status');
   el.style.display=msg?'flex':'none';
-  if(msg) document.getElementById('status-text').textContent=msg;
+  if(msg)document.getElementById('status-text').textContent=msg;
 }
 function fileToB64(file){
   return new Promise((res,rej)=>{
     const r=new FileReader();
-    r.onload=function(e){
-      try{
-        const result=e.target.result;
-        const base64=result.split(',')[1];
-        if(!base64)throw new Error('Empty file result');
-        res(base64);
-      }catch(err){rej(err);}
-    };
-    r.onerror=function(e){rej(new Error('FileReader error: '+e.target.error));};
-    r.onabort=function(){rej(new Error('FileReader aborted'));};
-    try{r.readAsDataURL(file);}catch(err){rej(err);}
+    r.onload=e=>{try{const b=e.target.result.split(',')[1];if(!b)throw new Error('Empty');res(b);}catch(err){rej(err);}};
+    r.onerror=()=>rej(new Error('FileReader error'));
+    r.readAsDataURL(file);
   });
 }
 
@@ -155,17 +233,20 @@ function renderAssociates(){
   const seen=new Set();
   employees.forEach(e=>{
     if(seen.has(e.name))return;seen.add(e.name);
-    const noCart=excludeFromCarts.has(e.name),noSweep=excludeFromSweep.has(e.name);
+    const noCart=excludeFromCarts.has(e.name)||permNoCart.has(e.name);
+    const noSweep=excludeFromSweep.has(e.name);
+    const isPerm=permNoCart.has(e.name);
     const div=document.createElement('div');div.className='assoc-card';
     const range=e.cartStart?`${e.cartStart}–${e.cartEnd}`:'No CS-Bag';
     const meal=e.mealStart?`<div class="meal">Meal: ${e.mealStart}–${e.mealEnd}</div>`:'';
     const fecNote=(e.autoFecSegments&&e.autoFecSegments.length)?`<div class="meal" style="color:var(--blue)">Auto-FEC: ${e.autoFecSegments.map(s=>`${s.start}–${s.end}`).join(', ')}</div>`:'';
+    const permNote=isPerm?`<div class="meal" style="color:var(--red)">Permanently excluded from carts</div>`:'';
     div.innerHTML=`
       <div class="name">${e.name}</div>
       <div class="meta">${jobLabel(e.job)} · ${range}</div>
-      ${meal}${fecNote}
+      ${meal}${fecNote}${permNote}
       <div class="toggles">
-        <button class="tog ${noCart?'active-no-cart':''}" onclick="toggleExclude('cart','${e.name.replace(/'/g,"\\'")}',this)">${noCart?'✕ No carts':'No carts'}</button>
+        <button class="tog ${noCart?'active-no-cart':''}" ${isPerm?'disabled title="Permanently excluded"':''} onclick="toggleExclude('cart','${e.name.replace(/'/g,"\\'")}',this)">${noCart?'✕ No carts':'No carts'}</button>
         <button class="tog ${noSweep?'active-no-sweep':''}" onclick="toggleExclude('sweep','${e.name.replace(/'/g,"\\'")}',this)">${noSweep?'✕ No sweep':'No sweep'}</button>
       </div>`;
     grid.appendChild(div);
@@ -185,6 +266,30 @@ function toggleExclude(type,name,btn){
 // ── FEC options ───────────────────────────────────────────────────────────────
 function renderFECOptions(){
   const candidates=employees.filter(e=>['css','cstl','csm','mgr'].includes(e.job));
+  const autoFecs=employees.filter(e=>e.autoFecSegments&&e.autoFecSegments.length>0);
+
+  // Auto-FEC callout
+  const autoFecDiv=document.getElementById('auto-fec-callout');
+  if(autoFecs.length>0){
+    autoFecDiv.innerHTML='<div class="lbl" style="margin-bottom:6px">Auto-detected CS-FEC</div>'+
+      autoFecs.map(e=>`<div class="auto-fec-row"><span class="auto-fec-tag">Auto-FEC</span> ${e.name} — ${e.autoFecSegments.map(s=>`${s.start}–${s.end}`).join(', ')}</div>`).join('');
+    autoFecDiv.style.display='block';
+  } else {
+    autoFecDiv.style.display='none';
+  }
+
+  // Suggest closing FEC — CSS with latest CS-Bag end time
+  const cssBag=employees.filter(e=>e.job==='css'&&e.cartEnd);
+  const suggestedFec2=cssBag.sort((a,b)=>timeToMins(b.cartEnd)-timeToMins(a.cartEnd))[0];
+
+  const fecSuggest=document.getElementById('fec-suggestion');
+  if(suggestedFec2){
+    fecSuggest.innerHTML=`<div class="fec-suggest-box">💡 Suggested closing FEC: <strong>${suggestedFec2.name}</strong> (CS-Bag until ${suggestedFec2.cartEnd}) <button class="sm-btn" onclick="confirmSuggestedFec('${suggestedFec2.name.replace(/'/g,"\\'")}')">Confirm</button> <button class="sm-btn" onclick="document.getElementById('fec-suggestion').style.display='none'">Dismiss</button></div>`;
+    fecSuggest.style.display='block';
+  } else {
+    fecSuggest.style.display='none';
+  }
+
   const seen=new Set();
   ['fec1-select','fec2-select'].forEach(id=>{
     const sel=document.getElementById(id);
@@ -196,6 +301,16 @@ function renderFECOptions(){
       sel.appendChild(o);
     });
   });
+
+  // Pre-select suggested closing FEC
+  if(suggestedFec2){
+    document.getElementById('fec2-select').value=suggestedFec2.name;
+  }
+}
+
+function confirmSuggestedFec(name){
+  document.getElementById('fec2-select').value=name;
+  document.getElementById('fec-suggestion').style.display='none';
 }
 
 // ── Slot table ────────────────────────────────────────────────────────────────
@@ -224,6 +339,8 @@ function buildSchedule(){
   const fec2Start=timeInputToMins(document.getElementById('fec2-start').value);
   const fec2End=timeInputToMins(document.getElementById('fec2-end').value);
 
+  const allExcluded=new Set([...excludeFromCarts,...permNoCart]);
+
   const state=employees.map(e=>({
     name:e.name,job:e.job,
     cartStart:timeToMins(e.cartStart),cartEnd:timeToMins(e.cartEnd),
@@ -240,7 +357,6 @@ function buildSchedule(){
   const isAutoFecBlocked=(e,ss,se)=>e.autoFecSegs.some(f=>ss<f.fe&&se>f.fs);
   const isFecWin=(name,ss,fStart,fEnd)=>!!name&&fStart!==null&&fEnd!==null&&ss>=fStart&&ss<fEnd;
 
-  // PM cleaner detection
   const cleanersList=[];const seenC=new Set();
   employees.forEach(e=>{
     if(seenC.has(e.name))return;seenC.add(e.name);
@@ -252,7 +368,6 @@ function buildSchedule(){
   const pmCleaner=cleanersList.length>1?cleanersList[cleanersList.length-1].name:null;
   const pmCleanSegs=pmCleaner?state.find(e=>e.name===pmCleaner)?.cleanSegs||[]:[];
 
-  // Floor care sweep at 9:30pm
   const floorCareTime=t(21,30);
   const floorWorkers=[];const fcSeen=new Set();
   state.forEach(e=>{if(fcSeen.has(e.name))return;if(e.floorSegs.some(s=>s.cs<=floorCareTime&&s.ce>=floorCareTime+30)){floorWorkers.push(e.name);fcSeen.add(e.name);}});
@@ -269,7 +384,7 @@ function buildSchedule(){
       if(!isAvail(e,ss,se))return false;
       if(isAutoFecBlocked(e,ss,se))return false;
       if(exFec&&((inF1&&e.name===fec1Name)||(inF2&&e.name===fec2Name)))return false;
-      if(excludeFromCarts.has(e.name))return false;
+      if(allExcluded.has(e.name))return false;
       if(exCSTL&&['cstl','csm','mgr'].includes(e.job))return false;
       if(e.last_idx===i-1&&e.consec>=maxC)return false;
       return true;
@@ -315,11 +430,12 @@ function buildSchedule(){
     const inF1sw=isFecWin(fec1Name,ss,fec1Start,fec1End);
     const inF2sw=isFecWin(fec2Name,ss,fec2Start,fec2End);
     const pool=state.filter(e=>{
-      if(!['fsc','css','cstl','csm','mgr'].includes(e.job))return false;
+      if(!['fsc'].includes(e.job))return false; // only FSC for sweep
       if(e.cartStart===null||e.cartStart>ss||e.cartEnd<se)return false;
       if(isOnMeal(e,ss,se))return false;
       if(cartNames.has(e.name))return false;
       if(excludeFromSweep.has(e.name))return false;
+      if(allExcluded.has(e.name))return false;
       if(pmCleaner&&e.name===pmCleaner&&inPmClean)return false;
       if(inF1sw&&e.name===fec1Name)return false;
       if(inF2sw&&e.name===fec2Name)return false;
@@ -340,13 +456,16 @@ function buildSchedule(){
 
   schedule.forEach(s=>{s.sweep=sweepAssign[s.start]||null;});
   lastSchedule={schedule,slotCounts,fec1Name,fec2Name,scheduleDate};
+  closeStep('step2');closeStep('step3');closeStep('step4');
   renderResults();
 }
 
 // ── Render results ────────────────────────────────────────────────────────────
 function renderResults(){
   const{schedule,slotCounts,fec1Name,fec2Name}=lastSchedule;
-  ['results-section','sched-preview'].forEach(id=>document.getElementById(id).style.display='block');
+  document.getElementById('results-section').style.display='block';
+  document.getElementById('sched-preview').style.display='block';
+  openStep('step5');openStep('step6');
   document.getElementById('results-section').scrollIntoView({behavior:'smooth'});
 
   const tbody=document.getElementById('counts-tbody');tbody.innerHTML='';
@@ -356,7 +475,8 @@ function renderResults(){
     const isFec=e.name===fec1Name||e.name===fec2Name;
     const isAFec=e.autoFecSegments&&e.autoFecSegments.length;
     const isMgr=['cstl','csm','mgr'].includes(e.job);
-    const xc=excludeFromCarts.has(e.name),xs=excludeFromSweep.has(e.name);
+    const xc=excludeFromCarts.has(e.name)||permNoCart.has(e.name);
+    const xs=excludeFromSweep.has(e.name);
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${e.name}${isFec?`<span class="badge badge-fec">FEC</span>`:''}${isAFec?`<span class="badge badge-autofec">Auto-FEC</span>`:''}${isMgr?`<span class="badge badge-cstl">CSTL</span>`:''}${xc?`<span class="badge badge-excluded">No carts</span>`:''}${xs?`<span class="badge badge-excluded">No sweep</span>`:''}</td>
     <td style="font-size:11px;color:var(--muted)">${e.cartStart?`${e.cartStart}–${e.cartEnd}`:'—'}</td>
@@ -378,7 +498,7 @@ function renderResults(){
         return`<span class="${cls}">${a.name}${a.fecOn?' *':a.isMgr?' †':''}</span>`;
       }).join('')
       :'<span style="color:var(--muted);font-size:11px">—</span>';
-    const sw=s.sweep?(Array.isArray(s.sweep)?s.sweep:[s.sweep]).map(n=>`<span class="sched-name sweep">${n}</span>`).join(''):'';
+    const sw=s.sweep?(Array.isArray(s.sweep)?s.sweep:[s.sweep]).map(n=>`<span class="sched-name sweep">${n}</span>`).join(''):'' ;
     tr.innerHTML=`<td class="time-cell">${minsToStr(s.start)}</td><td class="num-cell">${numCell}</td><td>${names}</td><td class="sweep-cell">${sw}</td>`;
     stbody.appendChild(tr);
   });
@@ -387,12 +507,12 @@ function renderResults(){
 // ── PDF Export ────────────────────────────────────────────────────────────────
 async function exportPDF(){
   if(!lastSchedule)return;
-  if(!window.jspdf){alert('PDF library loading, please try again in a moment.');return;}
+  if(!window.jspdf){alert('PDF library loading, please try again.');return;}
   const{jsPDF}=window.jspdf;
   const{schedule,fec1Name,fec2Name,scheduleDate}=lastSchedule;
   const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'letter'});
 
-  const PW=612,MARGIN=36,ROW_H=14;
+  const PW=612,PH=792,MARGIN=36,ROW_H=14;
   const COL_TIME=MARGIN,COL_NUM=MARGIN+50,COL_A=MARGIN+88;
   const A_SUB_W=88,MAX_A=3;
   const SWEEP_RIGHT=PW-MARGIN,SWEEP_W=132,SW_SUB_W=66,MAX_SW=2;
@@ -411,12 +531,31 @@ async function exportPDF(){
     return y+ROW_H+2;
   };
 
+  const notes=[];
+  let hasFec=false,hasMgr=false;
+
+  // Pre-scan for notes
+  schedule.forEach(s=>{
+    s.assigned.forEach(a=>{if(a.fecOn)hasFec=true;if(a.isMgr)hasMgr=true;});
+  });
+  if(hasFec){
+    if(fec1Name)notes.push(`* ${firstLast(fec1Name)} is a designated FEC — placed on carts due to insufficient coverage`);
+    if(fec2Name&&fec2Name!==fec1Name)notes.push(`* ${firstLast(fec2Name)} is a designated FEC — placed on carts due to insufficient coverage`);
+  }
+  if(hasMgr)notes.push('\u2020 CS Team Leader/Manager placed on carts only where no other associate was available');
+
+  // Calculate total rows to know if notes fit on last page
+  const HEADER_Y=76;
+  const NOTES_H=notes.length*(9)+10;
+  const WATERMARK_Y=PH-20;
+  const FOOTER_SPACE=NOTES_H+20; // space needed at bottom
+
   const newPage=()=>{
-    doc.addPage();let y=40;
+    doc.addPage();let py=40;
     doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(150,150,150);
-    doc.text(`Cart Schedule ${scheduleDate} (continued)`,MARGIN,y);
-    doc.setTextColor(0,0,0);y+=14;
-    return drawHeader(y);
+    doc.text(`Cart Schedule ${scheduleDate} (continued)`,MARGIN,py);
+    doc.setTextColor(0,0,0);py+=14;
+    return drawHeader(py);
   };
 
   let y=50;
@@ -424,53 +563,40 @@ async function exportPDF(){
   doc.text(`Cart Schedule ${scheduleDate}`,MARGIN,y);
   y+=26;y=drawHeader(y);
 
-  let hasFec=false,hasMgr=false;
   schedule.forEach((s,idx)=>{
-    if(y>730)y=newPage();
+    if(y>PH-FOOTER_SPACE-20)y=newPage();
     if(idx%2===0){doc.setFillColor(251,251,249);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');}
     doc.setFont('helvetica','normal');doc.setFontSize(8);
     doc.setDrawColor(210,210,210);doc.setLineWidth(0.5);
     doc.line(COL_SW-4,y-3,COL_SW-4,y+ROW_H-3);
-
     doc.setTextColor(120,120,120);doc.text(minsToStr(s.start),COL_TIME,y+ROW_H-5);
-
     if(s.type==='lot'){doc.setTextColor(26,79,160);doc.text('Lot/Bag',COL_NUM,y+ROW_H-5);}
     else{doc.setTextColor(0,0,0);doc.text(String(s.cap),COL_NUM,y+ROW_H-5);}
     doc.setTextColor(0,0,0);
-
     s.assigned.slice(0,MAX_A).forEach((a,ci)=>{
-      if(a.fecOn)hasFec=true;if(a.isMgr)hasMgr=true;
       doc.text(firstLast(a.name)+(a.fecOn?' *':a.isMgr?' \u2020':''),COL_A+ci*A_SUB_W,y+ROW_H-5);
     });
-
     if(s.sweep){
       doc.setTextColor(26,107,58);
       const sw=Array.isArray(s.sweep)?s.sweep:[s.sweep];
       sw.slice(0,MAX_SW).forEach((n,si)=>{
-        const cx=COL_SW+si*SW_SUB_W+SW_SUB_W/2;
-        doc.text(firstLast(n),cx,y+ROW_H-5,{align:'center'});
+        doc.text(firstLast(n),COL_SW+si*SW_SUB_W+SW_SUB_W/2,y+ROW_H-5,{align:'center'});
       });
       doc.setTextColor(0,0,0);
     }
     y+=ROW_H;
   });
 
-  // Footnotes
-  const notes=[];
-  if(hasFec){
-    if(fec1Name) notes.push(`* ${firstLast(fec1Name)} is a designated FEC — placed on carts due to insufficient coverage`);
-    if(fec2Name&&fec2Name!==fec1Name) notes.push(`* ${firstLast(fec2Name)} is a designated FEC — placed on carts due to insufficient coverage`);
-  }
-  if(hasMgr) notes.push('\u2020 CS Team Leader/Manager placed on carts only where no other associate was available');
+  // Footnotes flush to bottom of last page
+  const totalPages=doc.getNumberOfPages();
+  doc.setPage(totalPages);
+  let footY=PH-FOOTER_SPACE+4;
   if(notes.length){
-    y+=6;if(y>740)y=newPage();
     doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(150,150,150);
-    notes.forEach(n=>{doc.text(n,MARGIN,y);y+=9;});
+    notes.forEach(n=>{doc.text(n,MARGIN,footY);footY+=9;});
   }
-
-  // Watermark
   doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(190,190,190);
-  doc.text('Made by Norm Bottie',PW-MARGIN,780,{align:'right'});
+  doc.text('Made by Norm Bottie',PW-MARGIN,WATERMARK_Y,{align:'right'});
 
   doc.save(`Cart Schedule ${scheduleDate.replace(/\//g,'-')}.pdf`);
 }

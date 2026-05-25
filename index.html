@@ -5,129 +5,193 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CartSched">
 <title>Cart Scheduler</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-  window.addEventListener('load',function(){
-    if(typeof pdfjsLib!=='undefined'){
-      pdfjsLib.GlobalWorkerOptions.workerSrc='';
-    }
-  });
-</script>
 </head>
 <body>
+
 <header>
-  <h1>Cart Scheduler</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="menu-btn" class="menu-btn" onclick="toggleMenu()" title="Permanent exclusions">☰</button>
+    <h1>Cart Scheduler</h1>
+  </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
     <span id="sched-date" style="font-size:13px;font-weight:500"></span>
     <span class="watermark-header">Made by Norm Bottie</span>
   </div>
 </header>
+
+<!-- Permanent no-cart menu -->
+<div id="perm-menu" style="display:none">
+  <div class="perm-menu-title">Permanent No-Carts List</div>
+  <p style="font-size:11px;color:var(--muted);margin-bottom:10px">These associates are always excluded from carts across all days. Syncs to this device.</p>
+  <div id="perm-list"></div>
+  <div style="display:flex;gap:6px;margin-top:10px">
+    <input type="text" id="perm-input" placeholder="Associate name..." style="flex:1;padding:6px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+    <button class="sm-btn" onclick="addPermNoCart()">Add</button>
+  </div>
+</div>
+
 <main>
-  <div class="step">
-    <div class="step-title">1 — Upload daily overview PDF</div>
-    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-      <i class="ti ti-file-upload"></i>
-      <strong>Click to upload or drag &amp; drop</strong>
-      <p>Daily Overview PDF from the scheduling system</p>
+
+  <!-- Step 1: Upload -->
+  <div class="step" id="step1">
+    <div class="step-header" onclick="collapseStep('step1')">
+      <span class="step-num">1</span>
+      <span class="step-label">Upload daily overview PDF</span>
+      <span class="step-icon" id="step1-icon">▾</span>
     </div>
-    <input type="file" id="file-input" accept=".pdf" style="display:none">
-    <div class="file-chip" id="file-chip" style="display:none">
-      <i class="ti ti-file-text" style="font-size:16px;color:var(--muted)"></i>
-      <span id="file-chip-name"></span>
-      <button class="rm" onclick="clearFile()">✕</button>
-    </div>
-    <button class="parse-btn" id="parse-btn" onclick="parsePDF()" disabled>
-      <i class="ti ti-sparkles"></i> Parse PDF with AI
-    </button>
-    <p style="font-size:11px;color:var(--muted);margin-top:8px">Text is extracted locally — only text is sent to AI, not the full file.</p>
-    <div class="status" id="status" style="display:none">
-      <div class="spinner"></div>
-      <span id="status-text"></span>
-    </div>
-  </div>
-  <div class="step" id="assoc-section" style="display:none">
-    <div class="step-title">2 — Associates found</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Toggle per-day exclusions. "No carts" removes from cart scheduling. "No sweep" removes from store sweep.</p>
-    <div class="assoc-grid" id="assoc-grid"></div>
-  </div>
-  <div class="step" id="config-section" style="display:none">
-    <div class="step-title">3 — FEC assignment</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Select up to two FECs and their windows. Excluded from carts during those hours. Placed on carts with * only if coverage is short.</p>
-    <div class="fec-section">
-      <div class="fec-box">
-        <label>FEC</label>
-        <select id="fec1-select"></select>
-        <label>From</label>
-        <input type="time" id="fec1-start" value="11:00">
-        <label>To</label>
-        <input type="time" id="fec1-end" value="18:00">
+    <div id="step1-body">
+      <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <i class="ti ti-file-upload"></i>
+        <strong>Click to upload or drag &amp; drop</strong>
+        <p>Daily Overview PDF from the scheduling system</p>
       </div>
-      <div class="fec-box">
-        <label>Closing FEC</label>
-        <select id="fec2-select"></select>
-        <label>From</label>
-        <input type="time" id="fec2-start" value="18:00">
-        <label>To</label>
-        <input type="time" id="fec2-end" value="22:00">
+      <input type="file" id="file-input" accept=".pdf" style="display:none">
+      <div class="file-chip" id="file-chip" style="display:none">
+        <i class="ti ti-file-text" style="font-size:16px;color:var(--muted)"></i>
+        <span id="file-chip-name"></span>
+        <button class="rm" onclick="clearFile()">✕</button>
+      </div>
+      <button class="parse-btn" id="parse-btn" onclick="parsePDF()" disabled>
+        <i class="ti ti-sparkles"></i> Parse PDF with AI
+      </button>
+      <div class="status" id="status" style="display:none">
+        <div class="spinner"></div>
+        <span id="status-text"></span>
       </div>
     </div>
   </div>
-  <div class="step" id="slots-section" style="display:none">
-    <div class="step-title">4 — Slot configuration (7:00 AM – 10:00 PM)</div>
-    <div class="bulk-row">
-      <label>Set all capacity:</label>
-      <input type="number" id="bulk-cap" min="0" max="10" value="1">
-      <button class="sm-btn" onclick="setAllCap()">Apply</button>
-      <label style="margin-left:8px">Set all type:</label>
-      <select id="bulk-type" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
-        <option value="cart">Cart</option>
-        <option value="lot">Lot/Bag</option>
-      </select>
-      <button class="sm-btn" onclick="setAllType()">Apply</button>
+
+  <!-- Step 2: Associates -->
+  <div class="step" id="step2" style="display:none">
+    <div class="step-header" onclick="collapseStep('step2')">
+      <span class="step-num">2</span>
+      <span class="step-label">Associates found</span>
+      <span class="step-icon" id="step2-icon">▾</span>
     </div>
-    <table class="slot-table">
-      <thead><tr><th>Time</th><th>People</th><th>Type</th></tr></thead>
-      <tbody id="slot-tbody"></tbody>
-    </table>
+    <div id="step2-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Toggle per-day exclusions. Permanently excluded associates are marked.</p>
+      <div class="assoc-grid" id="assoc-grid"></div>
+    </div>
   </div>
+
+  <!-- Step 3: FEC -->
+  <div class="step" id="step3" style="display:none">
+    <div class="step-header" onclick="collapseStep('step3')">
+      <span class="step-num">3</span>
+      <span class="step-label">FEC assignment</span>
+      <span class="step-icon" id="step3-icon">▾</span>
+    </div>
+    <div id="step3-body">
+      <div id="auto-fec-callout" style="display:none;margin-bottom:12px;padding:10px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)"></div>
+      <div id="fec-suggestion" style="display:none;margin-bottom:12px"></div>
+      <div class="fec-section">
+        <div class="fec-box">
+          <label>FEC</label>
+          <select id="fec1-select"></select>
+          <label>From</label>
+          <input type="time" id="fec1-start" value="11:00">
+          <label>To</label>
+          <input type="time" id="fec1-end" value="18:00">
+        </div>
+        <div class="fec-box">
+          <label>Closing FEC</label>
+          <select id="fec2-select"></select>
+          <label>From</label>
+          <input type="time" id="fec2-start" value="18:00">
+          <label>To</label>
+          <input type="time" id="fec2-end" value="22:00">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Slots -->
+  <div class="step" id="step4" style="display:none">
+    <div class="step-header" onclick="collapseStep('step4')">
+      <span class="step-num">4</span>
+      <span class="step-label">Slot configuration (7:00 AM – 10:00 PM)</span>
+      <span class="step-icon" id="step4-icon">▾</span>
+    </div>
+    <div id="step4-body">
+      <div class="bulk-row">
+        <label>All capacity:</label>
+        <input type="number" id="bulk-cap" min="0" max="10" value="1">
+        <button class="sm-btn" onclick="setAllCap()">Apply</button>
+        <label style="margin-left:8px">All type:</label>
+        <select id="bulk-type" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+          <option value="cart">Cart</option>
+          <option value="lot">Lot/Bag</option>
+        </select>
+        <button class="sm-btn" onclick="setAllType()">Apply</button>
+      </div>
+      <table class="slot-table">
+        <thead><tr><th>Time</th><th>People</th><th>Type</th></tr></thead>
+        <tbody id="slot-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="generate-wrap" style="display:none;margin-bottom:16px">
     <button class="generate-btn" onclick="buildSchedule()">
       <i class="ti ti-calendar-event"></i> Generate Schedule
     </button>
   </div>
-  <div class="step" id="results-section" style="display:none">
-    <div class="step-title">Shift counts</div>
-    <div style="overflow-x:auto">
-      <table class="counts-table">
-        <thead><tr><th>Name</th><th>Cart window</th><th>Meal</th><th style="text-align:center">Slots</th></tr></thead>
-        <tbody id="counts-tbody"></tbody>
-      </table>
+
+  <!-- Step 5: Counts -->
+  <div class="step" id="step5" style="display:none">
+    <div class="step-header" onclick="collapseStep('step5')">
+      <span class="step-num">5</span>
+      <span class="step-label">Shift counts</span>
+      <span class="step-icon" id="step5-icon">▾</span>
+    </div>
+    <div id="step5-body">
+      <div style="overflow-x:auto">
+        <table class="counts-table">
+          <thead><tr><th>Name</th><th>Cart window</th><th>Meal</th><th style="text-align:center">Slots</th></tr></thead>
+          <tbody id="counts-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
-  <div class="step" id="sched-preview" style="display:none">
-    <div class="step-title">Schedule preview</div>
-    <div style="overflow-x:auto">
-      <table class="sched-table">
-        <thead><tr>
-          <th style="width:68px">Time</th>
-          <th style="width:60px">#</th>
-          <th>Associate(s)</th>
-          <th style="width:140px;text-align:center">Store Sweep</th>
-        </tr></thead>
-        <tbody id="sched-tbody"></tbody>
-      </table>
+
+  <!-- Step 6: Preview -->
+  <div class="step" id="step6" style="display:none">
+    <div class="step-header" onclick="collapseStep('step6')">
+      <span class="step-num">6</span>
+      <span class="step-label">Schedule preview</span>
+      <span class="step-icon" id="step6-icon">▾</span>
     </div>
-    <button class="dl-btn" onclick="exportPDF()">
-      <i class="ti ti-download"></i> Download PDF
-    </button>
+    <div id="step6-body">
+      <div style="overflow-x:auto">
+        <table class="sched-table">
+          <thead><tr>
+            <th style="width:68px">Time</th>
+            <th style="width:60px">#</th>
+            <th>Associate(s)</th>
+            <th style="width:140px;text-align:center">Store Sweep</th>
+          </tr></thead>
+          <tbody id="sched-tbody"></tbody>
+        </table>
+      </div>
+      <button class="dl-btn" onclick="exportPDF()">
+        <i class="ti ti-download"></i> Download PDF
+      </button>
+    </div>
   </div>
+
+  <!-- Hidden sections for compatibility -->
+  <div id="assoc-section" style="display:none"></div>
+  <div id="config-section" style="display:none"></div>
+  <div id="slots-section" style="display:none"></div>
+  <div id="results-section" style="display:none"></div>
+  <div id="sched-preview" style="display:none"></div>
+
 </main>
 <script src="app.js"></script>
 </body>
