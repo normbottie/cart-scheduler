@@ -1086,7 +1086,7 @@ function renderResults(){
 // ── PDF Export ────────────────────────────────────────────────────────────────
 function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
   const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'letter'});
-  const PW=612,PH=792,MARGIN=36,ROW_H=14;
+  const PW=612,PH=792,MARGIN=36,ROW_H=17;
   const COL_TIME=MARGIN,COL_NUM=MARGIN+50,COL_A=MARGIN+88;
   const A_SUB_W=88,MAX_A=3;
   const SWEEP_RIGHT=PW-MARGIN,SWEEP_W=132,SW_SUB_W=66;
@@ -1094,7 +1094,7 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
   const MID=ROW_H/2+2;
   const drawHeader=y=>{
     doc.setFillColor(224,222,216);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(80,80,80);
     doc.text('Time',COL_TIME,y+MID);doc.text('#',COL_NUM,y+MID);
     doc.text('Associate(s)',COL_A,y+MID);doc.text('Store Sweep',COL_SW,y+MID);
     doc.setDrawColor(200,200,200);doc.setLineWidth(0.5);
@@ -1111,18 +1111,18 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
   const FOOTER_SPACE=notes.length*9+30;
   const newPage=()=>{
     doc.addPage();let py=40;
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(150,150,150);
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(150,150,150);
     doc.text('Cart Schedule '+scheduleDate+' (continued)',MARGIN,py);
     doc.setTextColor(0,0,0);py+=14;return drawHeader(py);
   };
   let y=50;
-  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(0,0,0);
+  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(0,0,0);
   doc.text('Cart Schedule '+scheduleDate,MARGIN,y);
   y+=26;y=drawHeader(y);
   schedule.forEach(function(s,idx){
     if(y>PH-FOOTER_SPACE-20)y=newPage();
     if(idx%2===0){doc.setFillColor(251,251,249);doc.rect(MARGIN,y-3,PW-2*MARGIN,ROW_H,'F');}
-    doc.setFont('helvetica','normal');doc.setFontSize(8);
+    doc.setFont('helvetica','normal');doc.setFontSize(10);
     doc.setDrawColor(210,210,210);doc.setLineWidth(0.5);
     doc.line(COL_SW-4,y-3,COL_SW-4,y+ROW_H-3);
     doc.setTextColor(120,120,120);doc.text(minsToStr(s.start),COL_TIME,y+ROW_H-5);
@@ -1144,10 +1144,10 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
   doc.setPage(totalPages);
   var footY=PH-FOOTER_SPACE+4;
   if(notes.length){
-    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(150,150,150);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150,150,150);
     notes.forEach(function(n){doc.text(n,MARGIN,footY);footY+=9;});
   }
-  doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(190,190,190);
+  doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(190,190,190);
   doc.text('Made by Norm Bottie',PW-MARGIN,PH-20,{align:'right'});
   return doc;
 }
