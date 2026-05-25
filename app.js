@@ -304,7 +304,7 @@ Return a JSON array where each object has these exact keys:
 
 Times are like "06:45 AM" - convert to "6:45am". Multiple CS-Bag segments: use earliest start and latest end. Ignore handwriting.
 
-IMPORTANT: Start your entire response with [ and end with ]. No markdown, no explanation.\`;
+IMPORTANT: Start your entire response with [ and end with ]. No markdown, no explanation.`;
 
     // Build content array from scanned images
     setStatus(`Reading ${scannedPages.length} page(s)...`);
