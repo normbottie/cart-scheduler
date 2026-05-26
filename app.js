@@ -109,9 +109,48 @@ window.addEventListener('load',()=>{
 });
 
 // ── Terms agreement ──────────────────────────────────────────────────────────
+const PIN='1117'; // store number as default PIN
+const PIN_KEY='cart-scheduler-pin-ok';
+
 function checkTerms(){
-  document.getElementById('terms-modal').style.display='flex';
+  const modal=document.getElementById('terms-modal');
+  modal.style.display='flex';
+  // If PIN already verified on this device, skip straight to terms
+  if(localStorage.getItem(PIN_KEY)==='1'){
+    document.getElementById('pin-section').style.display='none';
+    document.getElementById('terms-section').style.display='block';
+  } else {
+    document.getElementById('pin-section').style.display='block';
+    document.getElementById('terms-section').style.display='none';
+    setTimeout(()=>document.getElementById('pin-0').focus(),300);
+  }
 }
+
+function pinInput(idx){
+  const inp=document.getElementById('pin-'+idx);
+  // Only allow digits
+  inp.value=inp.value.replace(/[^0-9]/g,'');
+  if(inp.value&&idx<3){
+    document.getElementById('pin-'+(idx+1)).focus();
+  }
+  // Auto-submit when last digit entered
+  if(idx===3&&inp.value) checkPin();
+}
+
+function checkPin(){
+  const entered=[0,1,2,3].map(i=>document.getElementById('pin-'+i).value).join('');
+  if(entered===PIN){
+    localStorage.setItem(PIN_KEY,'1');
+    document.getElementById('pin-section').style.display='none';
+    document.getElementById('terms-section').style.display='block';
+    document.getElementById('pin-error').style.display='none';
+  } else {
+    document.getElementById('pin-error').style.display='block';
+    [0,1,2,3].forEach(i=>document.getElementById('pin-'+i).value='');
+    document.getElementById('pin-0').focus();
+  }
+}
+
 function acceptTerms(){
   document.getElementById('terms-modal').style.display='none';
 }

@@ -253,19 +253,36 @@
 <!-- Terms modal -->
 <div id="terms-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--surface);border-radius:var(--radius-lg);padding:28px;max-width:460px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-    <h2 style="font-size:17px;font-weight:600;margin-bottom:14px">Before you continue</h2>
-    <p style="font-size:13px;line-height:1.6;color:var(--text);margin-bottom:20px">
-      By using Cart Scheduler, I understand that:
-    </p>
-    <ul style="font-size:13px;line-height:1.8;color:var(--text);margin-bottom:20px;padding-left:18px">
-      <li>Using this program is <strong>optional</strong> and is purely to save time.</li>
-      <li>This program can be <strong>removed at any time</strong> for any reason.</li>
-      <li>It <strong>may not be completely accurate</strong> and schedules should be reviewed.</li>
-      <li>In any event, I know how to create a proper Cart Schedule by hand and will do so if needed.</li>
-    </ul>
-    <button onclick="acceptTerms()" style="width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">
-      I Understand — Continue
-    </button>
+    <h2 style="font-size:17px;font-weight:600;margin-bottom:14px">Cart Scheduler</h2>
+
+    <!-- PIN entry -->
+    <div id="pin-section">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Enter your PIN to continue.</p>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-0" oninput="pinInput(0)">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-1" oninput="pinInput(1)">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-2" oninput="pinInput(2)">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-3" oninput="pinInput(3)">
+      </div>
+      <p id="pin-error" style="color:var(--red);font-size:12px;text-align:center;display:none;margin-bottom:8px">Incorrect PIN. Try again.</p>
+      <button onclick="checkPin()" style="width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">
+        Continue
+      </button>
+    </div>
+
+    <!-- Terms (shown after correct PIN) -->
+    <div id="terms-section" style="display:none">
+      <p style="font-size:13px;line-height:1.6;color:var(--text);margin-bottom:16px">By using Cart Scheduler, I understand that:</p>
+      <ul style="font-size:13px;line-height:1.8;color:var(--text);margin-bottom:20px;padding-left:18px">
+        <li>Using this program is <strong>optional</strong> and is purely to save time.</li>
+        <li>This program can be <strong>removed at any time</strong> for any reason.</li>
+        <li>It <strong>may not be completely accurate</strong> and schedules should be reviewed.</li>
+        <li>In any event, I know how to create a proper Cart Schedule by hand and will do so if needed.</li>
+      </ul>
+      <button onclick="acceptTerms()" style="width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">
+        I Understand — Continue
+      </button>
+    </div>
   </div>
 </div>
 </body>
