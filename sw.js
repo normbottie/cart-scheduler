@@ -1,4 +1,4 @@
-const CACHE = 'cart-scheduler-v8';
+const CACHE = 'cart-scheduler-v9';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -15,6 +15,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Only intercept same-origin requests — let cross-origin (API, worker) go straight to network
+  if(!e.request.url.startsWith(self.location.origin)) return;
   // Always go network-first for JS and HTML so updates propagate immediately
   if(e.request.url.match(/\.(js|html)$/)){
     e.respondWith(fetch(e.request).then(r => {
