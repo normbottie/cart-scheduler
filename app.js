@@ -6,15 +6,30 @@ async function kvGet(key){
   try{const r=await fetch(WORKER_URL+'/kv/'+key,{method:'GET'});if(!r.ok)return null;const d=await r.json();return d.value!==undefined?d.value:null;}catch(e){return null;}
 }
 async function kvSet(key,value){
-  try{await fetch(WORKER_URL+'/kv/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});}catch(e){}
+  try{
+    const r=await fetch(WORKER_URL+'/kv/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});
+    if(!r.ok)throw new Error('status '+r.status);
+  }catch(e){showKVError();}
+}
+function showKVError(){
+  let toast=document.getElementById('kv-toast');
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='kv-toast';
+    toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#a02020;color:white;padding:8px 16px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s';
+    toast.textContent='⚠️ Could not sync to cloud — saved locally only';
+    document.body.appendChild(toast);
+  }
+  toast.style.opacity='1';
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>toast.style.opacity='0',4000);
 }
 async function initKVSync(){
-  const[noCartArr,splitRange]=await Promise.all([kvGet('no-carts'),kvGet('split-range')]);
+  const[noCartArr,splitRange,corrections]=await Promise.all([kvGet('no-carts'),kvGet('split-range'),kvGet('name-corrections')]);
   if(Array.isArray(noCartArr)){
     permNoCart=new Set(noCartArr);
     localStorage.setItem(PERM_KEY,JSON.stringify(noCartArr));
   } else {
-    // Migrate: push localStorage data up to KV if KV is empty
     if(permNoCart.size>0) kvSet('no-carts',[...permNoCart]);
   }
   if(splitRange&&typeof splitRange==='object'){
@@ -22,16 +37,34 @@ async function initKVSync(){
     populateSplitSelectors();
     applySplitRange();
   } else {
-    // Migrate: push localStorage split-range up to KV if KV is empty
     const saved=JSON.parse(localStorage.getItem('cart-scheduler-split-range')||'{}');
     if(saved['split-start']||saved['split-end']) kvSet('split-range',saved);
+  }
+  if(corrections&&typeof corrections==='object'&&Object.keys(corrections).length>0){
+    nameCorrections=corrections;
+    localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(corrections));
+  } else {
+    if(Object.keys(nameCorrections).length>0) kvSet('name-corrections',nameCorrections);
   }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function t(h,m,pm=false){if(pm&&h!==12)h+=12;if(!pm&&h===12)h=0;return h*60+m;}
 function minsToStr(m){const h=Math.floor(m/60),mn=m%60,ap=h>=12?'PM':'AM',h12=h%12||12;return`${h12}:${mn.toString().padStart(2,'0')} ${ap}`;}
-function timeToMins(s){if(!s)return null;s=s.trim().toLowerCase();const m=s.match(/(\d+):(\d+)\s*(am|pm)/);if(!m)return null;let h=parseInt(m[1]),mn=parseInt(m[2]),ap=m[3];if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60+mn;}
+function timeToMins(s){
+  if(!s)return null;
+  s=s.trim().toLowerCase().replace(/\s+/g,'');
+  // 24-hour format: "13:00", "09:30"
+  const mil=s.match(/^(\d{1,2}):(\d{2})$/);
+  if(mil){const h=parseInt(mil[1]),m=parseInt(mil[2]);if(h>=0&&h<24)return h*60+m;}
+  // With minutes: "9:00am", "12:30pm"
+  const wm=s.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
+  if(wm){let h=parseInt(wm[1]),m=parseInt(wm[2]),ap=wm[3];if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60+m;}
+  // No minutes: "9am", "12pm"
+  const nm=s.match(/^(\d{1,2})(am|pm)$/);
+  if(nm){let h=parseInt(nm[1]),ap=nm[2];if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60;}
+  return null;
+}
 function timeInputToMins(v){if(!v)return null;const[h,m]=v.split(':').map(Number);return h*60+m;}
 
 // Convert "JOHN DOE" or "john doe" to "John Doe"
@@ -89,7 +122,7 @@ let permNoCart=loadPermNoCart();
 // ── Name corrections (persisted) ──────────────────────────────────────────────
 const CORRECTIONS_KEY='cart-scheduler-name-corrections';
 function loadCorrections(){try{return JSON.parse(localStorage.getItem(CORRECTIONS_KEY)||'{}');}catch(e){return {};}}
-function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));}
+function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));kvSet('name-corrections',obj);}
 let nameCorrections=loadCorrections(); // {wrongName: correctName}
 
 function applyCorrections(empList){
@@ -360,33 +393,38 @@ function clearFile(){
 }
 
 // ── Scan functions ───────────────────────────────────────────────────────────
-async function compressImage(file, maxWidth=2400, quality=0.92){
-  return new Promise((resolve)=>{
+async function compressImage(file, maxWidth=1568, quality=0.85){
+  const compress=(w,q)=>new Promise((resolve)=>{
     const img=new Image();
     const url=URL.createObjectURL(file);
     img.onload=()=>{
-      const scale=Math.min(1, maxWidth/img.width);
-      const w=Math.round(img.width*scale);
-      const h=Math.round(img.height*scale);
+      const scale=Math.min(1, w/img.width);
+      const cw=Math.round(img.width*scale), ch=Math.round(img.height*scale);
       const canvas=document.createElement('canvas');
-      canvas.width=w; canvas.height=h;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0,w,h);
+      canvas.width=cw; canvas.height=ch;
+      canvas.getContext('2d').drawImage(img,0,0,cw,ch);
       canvas.toBlob(blob=>{
         URL.revokeObjectURL(url);
         const reader=new FileReader();
         reader.onload=e=>{
-          const dataUrl=e.target.result;
-          const b64=dataUrl.split(',')[1];
+          const b64=e.target.result.split(',')[1];
           console.log('Compressed image: '+Math.round(b64.length/1024)+'KB');
           resolve({b64,mediaType:'image/jpeg'});
         };
         reader.readAsDataURL(blob);
-      },'image/jpeg',quality);
+      },'image/jpeg',q);
     };
     img.onerror=()=>resolve(null);
     img.src=url;
   });
+  const result=await compress(maxWidth,quality);
+  if(!result)return null;
+  // Second pass if still over 1MB base64 (~750KB raw)
+  if(result.b64.length>1024*1024){
+    console.log('Image still large, re-compressing...');
+    return compress(1200, 0.75);
+  }
+  return result;
 }
 
 function addScannedPage(file, inputEl){
