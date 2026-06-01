@@ -280,10 +280,10 @@
     <div id="pin-section">
       <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Enter your PIN to continue.</p>
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px">
-        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-0" oninput="pinInput(0)">
-        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-1" oninput="pinInput(1)">
-        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-2" oninput="pinInput(2)">
-        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-3" oninput="pinInput(3)">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-0" oninput="pinInput(0)" autocomplete="off">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-1" oninput="pinInput(1)" autocomplete="off">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-2" oninput="pinInput(2)" autocomplete="off">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-3" oninput="pinInput(3)" autocomplete="off">
       </div>
       <p id="pin-error" style="color:var(--red);font-size:12px;text-align:center;display:none;margin-bottom:8px">Incorrect PIN. Try again.</p>
       <button onclick="checkPin()" style="width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">
