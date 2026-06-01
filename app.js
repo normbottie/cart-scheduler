@@ -266,8 +266,7 @@ window.addEventListener('load',()=>{
   initSlots();
   renderPermNoCartMenu();
   renderHistory();
-  syncFromKV();
-  checkOnboarding(); // pull remote KV data and merge
+  syncFromKV(); // pull remote KV data and merge
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
   // Show install button on iOS if not already installed
