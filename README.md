@@ -123,7 +123,7 @@ git push origin v2-dev
 - `app.js` — all application logic (~1300 lines)
 - `index.html` — UI structure
 - `style.css` — styling with CSS variables
-- `sw.js` — service worker (cache name: `cart-scheduler-v7`)
+- `sw.js` — service worker (cache name: `cart-scheduler-v9`)
 - `manifest.json` — PWA manifest
 - `cart-scheduler-worker/worker.js` — Cloudflare Worker proxy
 - `cart-scheduler-worker/wrangler.toml` — Worker config (account ID + KV binding)
@@ -131,14 +131,14 @@ git push origin v2-dev
 ## Features (v2-dev)
 
 ### Step 1 — Upload
-- **Scan Daily Overview** — camera scan, multiple pages, auto-compressed before sending
+- **Scan Daily Overview** — camera scan, multiple pages, auto-compressed (1568px max, 0.85 quality, second pass if still over 1MB)
 - **Scan Cart Service Schedule** — optional; auto-fills slot capacities and Lot/Bag types from Parking Lot column
-- **15-minute scheduling** — specify a From/To time range; all slots in that range split into 15-min pairs (persisted via KV)
+- **15-minute scheduling** — specify a From/To time range; all slots in that range split into 15-min pairs (persisted via KV + localStorage)
 - **Page validation** — AI checks each scanned image is the correct document type before parsing
 
 ### Step 2 — Associates Found
 - Cards show name, job, cart window, meal, auto-FEC segments
-- **✏️ pencil edit** — fix names inline; prompts to save as permanent correction (auto-applied on future scans)
+- **✏️ pencil edit** — fix names inline; prompts to save as permanent correction (auto-applied on future scans, synced cross-device via KV)
 - **No carts / No sweep** toggles per day
 - **Permanent no-carts list** — saved to KV (cross-device) and localStorage
 
@@ -151,6 +151,7 @@ git push origin v2-dev
 - 30-min slots 7AM–10PM; 15-min pairs shown when range is set
 - Bulk set capacity or type
 - Cart Service scan auto-fills this step
+- **Lot/Bag** slots have no consecutive limit (Cart type max 1 consecutive)
 
 ### Step 5/6 — Results & Preview
 - Shift counts table (collapsed by default)
@@ -159,14 +160,19 @@ git push origin v2-dev
 - History auto-saves on download
 
 ### ☰ Menu
-- Permanent no-carts list (KV + localStorage)
-- Name corrections (localStorage) — wrong→correct mappings
+- Permanent no-carts list (KV + localStorage, cross-device)
+- Name corrections (KV + localStorage, cross-device) — wrong→correct mappings; menu stays open when deleting
 
 ### Security
 - 4-digit PIN gate (default: `1117`) on the terms modal
 - Once verified, remembered per device via localStorage
 - `robots.txt` blocks crawlers
 - Terms popup on every page load (after PIN)
+
+### Sync & Reliability
+- KV failure toast — red banner shown if cloud sync fails, data still saved locally
+- Service worker only intercepts same-origin requests (cross-origin API calls go direct to network)
+- Network-first strategy for JS/HTML files so updates propagate immediately
 
 ## PDF Output
 - Dark banner title row with date, built into the chart header
@@ -207,6 +213,7 @@ git push origin v2-dev
 |-----|---------|
 | `no-carts` | Permanent no-carts list (cross-device) |
 | `split-range` | 15-min scheduling From/To selection (cross-device) |
+| `name-corrections` | OCR name correction mappings (cross-device) |
 
 ## Debug Mode
 In browser console: `DEBUG_MODE = true`
@@ -214,10 +221,9 @@ Loads mock data instantly, skips all AI calls. Mock includes ~11 associates cove
 
 ## Worker API
 - `POST /` with standard Anthropic messages body → `{success: true, employees: [...]}`
-- Add `_rawParse: true` to body → `{content: [...], raw: "..."}` (used for cart schedule and validation calls)
+- Add `_rawParse: true` to body → `{content: [...], raw: "..."}` (used for cart schedule and validation calls); internal field stripped before forwarding to Anthropic
 - `GET /kv/:key` → `{value: ...}` — read from KV
 - `PUT /kv/:key` with `{value: ...}` body → `{ok: true}` — write to KV
 
 ## Known To-Do
-- More robust AM/PM time parsing for edge cases
 - Time window editor for individual associate cart windows
