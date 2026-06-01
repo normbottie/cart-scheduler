@@ -67,6 +67,128 @@ async function syncFromKV(){
   renderPermNoCartMenu();
 }
 
+// ── Undo stack ────────────────────────────────────────────────────────────────
+let undoStack=[];
+const MAX_UNDO=20;
+function pushUndo(){
+  undoStack.push({
+    excludeFromCarts:new Set(excludeFromCarts),
+    excludeFromSweep:new Set(excludeFromSweep),
+    employees:employees.map(e=>({...e,autoFecSegments:[...(e.autoFecSegments||[])],csCleaningSegments:[...(e.csCleaningSegments||[])],csFloorCareSegments:[...(e.csFloorCareSegments||[])]})),
+    slotCaps:{...slotCaps},slotTypes:{...slotTypes},
+    lastSchedule:lastSchedule?JSON.parse(JSON.stringify(lastSchedule)):null,
+  });
+  if(undoStack.length>MAX_UNDO)undoStack.shift();
+  updateUndoBtn();
+}
+function undo(){
+  if(!undoStack.length)return;
+  const state=undoStack.pop();
+  excludeFromCarts=state.excludeFromCarts;excludeFromSweep=state.excludeFromSweep;
+  employees=state.employees;slotCaps=state.slotCaps;slotTypes=state.slotTypes;
+  lastSchedule=state.lastSchedule;
+  if(employees.length){renderAssociates();renderFECOptions();}
+  renderSlotTable();
+  if(lastSchedule)renderResults();
+  updateUndoBtn();
+}
+function updateUndoBtn(){const btn=document.getElementById('undo-btn');if(btn)btn.style.display=undoStack.length?'flex':'none';}
+
+// ── Dark mode ─────────────────────────────────────────────────────────────────
+function toggleDarkMode(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const next=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('cart-scheduler-theme',next);
+  const btn=document.getElementById('dark-btn');
+  if(btn)btn.textContent=next==='dark'?'☀️':'🌙';
+}
+function initTheme(){
+  const saved=localStorage.getItem('cart-scheduler-theme');
+  const prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme=saved||(prefersDark?'dark':'light');
+  document.documentElement.setAttribute('data-theme',theme);
+  const btn=document.getElementById('dark-btn');
+  if(btn)btn.textContent=theme==='dark'?'☀️':'🌙';
+}
+
+// ── Manual slot override ──────────────────────────────────────────────────────
+let overrideSlotIdx=null,overrideAssigneeIdx=null;
+function getAvailableForSlot(slotStart,excludeNames){
+  const interval=slotIntervals[slotStart]||30;
+  const slotEnd=slotStart+interval;
+  const allExcluded=new Set([...excludeFromCarts,...permNoCart]);
+  const seen=new Set();
+  return employees.filter(e=>{
+    if(seen.has(e.name))return false;seen.add(e.name);
+    if(allExcluded.has(e.name))return false;
+    if(excludeNames.has(e.name))return false;
+    const cs=timeToMins(e.cartStart),ce=timeToMins(e.cartEnd);
+    if(cs===null||cs>slotStart||ce===null||ce<slotEnd)return false;
+    const ms=e.mealStart?timeToMins(e.mealStart):null,me=e.mealEnd?timeToMins(e.mealEnd):null;
+    if(ms!==null&&slotStart<me&&slotEnd>ms)return false;
+    if((e.autoFecSegments||[]).some(s=>{const fs=timeToMins(s.start),fe=timeToMins(s.end);return slotStart<fe&&slotEnd>fs;}))return false;
+    return true;
+  });
+}
+function openOverrideModal(slotIdx,assigneeIdx){
+  pushUndo();
+  overrideSlotIdx=slotIdx;overrideAssigneeIdx=assigneeIdx;
+  const slot=lastSchedule.schedule[slotIdx];
+  const currentName=slot.assigned[assigneeIdx].name;
+  const excludeNames=new Set(slot.assigned.map((a,i)=>i!==assigneeIdx?a.name:null).filter(Boolean));
+  const available=getAvailableForSlot(slot.start,excludeNames);
+  document.getElementById('override-slot-time').textContent=minsToStr(slot.start);
+  document.getElementById('override-current').textContent=currentName;
+  const list=document.getElementById('override-list');
+  list.innerHTML='';
+  if(!available.length){
+    list.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0">No one else available for this slot</div>';
+  }else{
+    available.forEach(e=>{
+      const btn=document.createElement('button');
+      btn.className='override-person-btn';
+      btn.innerHTML=`<span>${e.name}</span><span class="override-job">${jobLabel(e.job)}</span>`;
+      btn.onclick=()=>applyOverride(e.name,e.job);
+      list.appendChild(btn);
+    });
+  }
+  document.getElementById('override-modal').style.display='flex';
+}
+function closeOverrideModal(){
+  document.getElementById('override-modal').style.display='none';
+  overrideSlotIdx=null;overrideAssigneeIdx=null;
+}
+function applyOverride(newName,newJob){
+  if(overrideSlotIdx===null)return;
+  const slot=lastSchedule.schedule[overrideSlotIdx];
+  slot.assigned[overrideAssigneeIdx]={name:newName,job:newJob,fecOn:false,isMgr:['cstl','csm','mgr'].includes(newJob)};
+  closeOverrideModal();
+  renderResults();
+}
+
+// ── Schedule sharing ──────────────────────────────────────────────────────────
+async function shareSchedule(){
+  if(!lastSchedule)return;
+  if(!window.jspdf){alert('PDF library loading, please try again.');return;}
+  const jsPDF=window.jspdf.jsPDF;
+  const s=lastSchedule;
+  const doc=buildPDFDoc(jsPDF,s.schedule,s.fec1Name,s.fec2Name,s.scheduleDate);
+  const blob=doc.output('blob');
+  const filename=`Cart Schedule ${s.scheduleDate.replace(/\//g,'-')}.pdf`;
+  const file=new File([blob],filename,{type:'application/pdf'});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({title:`Cart Schedule ${s.scheduleDate}`,files:[file]});}
+    catch(e){if(e.name!=='AbortError')exportPDF();}
+  }else{exportPDF();}
+}
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+const ONBOARD_KEY='cart-scheduler-onboarded';
+function checkOnboarding(){if(!localStorage.getItem(ONBOARD_KEY))showOnboarding();}
+function showOnboarding(){document.getElementById('onboarding-modal').style.display='flex';}
+function closeOnboarding(){localStorage.setItem(ONBOARD_KEY,'1');document.getElementById('onboarding-modal').style.display='none';}
+
 // ── Persistent no-carts list (localStorage + KV) ──────────────────────────────
 const PERM_KEY='cart-scheduler-permanent-no-carts';
 function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PERM_KEY)||'[]'));}catch(e){return new Set();}}
@@ -140,10 +262,12 @@ function closeIOSModal(){
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
   checkTerms();
+  initTheme();
   initSlots();
   renderPermNoCartMenu();
   renderHistory();
-  syncFromKV(); // pull remote KV data and merge
+  syncFromKV();
+  checkOnboarding(); // pull remote KV data and merge
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
   // Show install button on iOS if not already installed
@@ -798,6 +922,7 @@ function renderFECOptions(){
 function jobLabel(j){return{fsc:'Front Svc Clerk',cashier:'Cashier',css:'CS Staff',cstl:'CS Team Leader',csm:'CS Manager',mgr:'Manager'}[j]||j;}
 
 function toggleExclude(type,name,btn){
+  pushUndo();
   const set=type==='cart'?excludeFromCarts:excludeFromSweep;
   const cls=type==='cart'?'active-no-cart':'active-no-sweep';
   const label=type==='cart'?'No carts':'No sweep';
@@ -821,6 +946,7 @@ function saveEditName(i){
   if(!newName)return;
   const oldName=employees[i].name;
   if(oldName===newName){document.getElementById('name-edit-'+i).style.display='none';return;}
+  pushUndo();
   // Ask if they want to save this correction permanently
   const savePerm=confirm('Save "'+oldName+'" → "'+newName+'" as a permanent correction?\nNext time this name appears it will be auto-fixed.');
   if(savePerm){
@@ -901,8 +1027,8 @@ function renderSlotTable(){
         const tr=document.createElement('tr');
         tr.className='slot-15';
         tr.innerHTML=`<td class="time-cell"><span class="slot-15-indicator">15</span>${minsToStr(s)}</td>
-          <td><input type="number" min="0" max="10" value="${slotCaps[s]||0}" onchange="slotCaps[${s}]=parseInt(this.value)||0"></td>
-          <td><select onchange="slotTypes[${s}]=this.value">
+          <td><input type="number" min="0" max="10" value="${slotCaps[s]||0}" onchange="pushUndo();slotCaps[${s}]=parseInt(this.value)||0"></td>
+          <td><select onchange="pushUndo();slotTypes[${s}]=this.value">
             <option value="cart"${slotTypes[s]==='cart'?' selected':''}>Cart</option>
             <option value="lot"${slotTypes[s]==='lot'?' selected':''}>Lot/Bag</option>
           </select></td>`;
@@ -911,8 +1037,8 @@ function renderSlotTable(){
     } else {
       const tr=document.createElement('tr');
       tr.innerHTML=`<td class="time-cell">${minsToStr(m)}</td>
-        <td><input type="number" min="0" max="10" value="${slotCaps[m]||0}" onchange="slotCaps[${m}]=parseInt(this.value)||0"></td>
-        <td><select onchange="slotTypes[${m}]=this.value">
+        <td><input type="number" min="0" max="10" value="${slotCaps[m]||0}" onchange="pushUndo();slotCaps[${m}]=parseInt(this.value)||0"></td>
+        <td><select onchange="pushUndo();slotTypes[${m}]=this.value">
           <option value="cart"${slotTypes[m]==='cart'?' selected':''}>Cart</option>
           <option value="lot"${slotTypes[m]==='lot'?' selected':''}>Lot/Bag</option>
         </select></td>`;
@@ -921,11 +1047,13 @@ function renderSlotTable(){
   }
 }
 function setAllCap(){
+  pushUndo();
   const v=parseInt(document.getElementById('bulk-cap').value)||1;
   SLOTS.forEach(m=>{slotCaps[m]=v;});
   renderSlotTable();
 }
 function setAllType(){
+  pushUndo();
   const tp=document.getElementById('bulk-type').value;
   SLOTS.forEach(m=>{slotTypes[m]=tp;});
   renderSlotTable();
@@ -1246,16 +1374,16 @@ function renderResults(){
   });
 
   const stbody=document.getElementById('sched-tbody');stbody.innerHTML='';
-  schedule.forEach(s=>{
+  schedule.forEach((s,si)=>{
     const tr=document.createElement('tr');
     const numCell=s.type==='lot'?`<span class="lot-type">Lot/Bag</span>`:s.cap;
     const names=s.assigned.length
-      ?s.assigned.map(a=>{
-        let cls='sched-name';
+      ?s.assigned.map((a,ai)=>{
+        let cls='sched-name override-tap';
         if(a.fecOn)cls+=' fec-on';
         else if(a.isMgr)cls+=' cstl';
         else if(s.type==='lot')cls+=' lot';
-        return`<span class="${cls}">${a.name}${a.fecOn?' *':a.isMgr?' †':''}</span>`;
+        return`<span class="${cls}" onclick="openOverrideModal(${si},${ai})" title="Tap to swap">${a.name}${a.fecOn?' *':a.isMgr?' †':''}</span>`;
       }).join('')
       :'<span style="color:var(--muted);font-size:11px">—</span>';
     const sw=s.sweep?(Array.isArray(s.sweep)?s.sweep:[s.sweep]).map(n=>`<span class="sched-name sweep">${n}</span>`).join(''):'' ;

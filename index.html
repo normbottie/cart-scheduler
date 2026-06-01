@@ -19,7 +19,10 @@
     <button id="menu-btn" class="menu-btn" onclick="toggleMenu()" title="Permanent exclusions">☰</button>
     <h1>Cart Scheduler</h1>
   </div>
-  <div style="display:flex;align-items:center;gap:8px">
+  <div style="display:flex;align-items:center;gap:6px">
+    <button id="undo-btn" onclick="undo()" style="display:none" class="hdr-icon-btn" title="Undo">↩</button>
+    <button id="dark-btn" onclick="toggleDarkMode()" class="hdr-icon-btn" title="Toggle dark mode">🌙</button>
+    <button onclick="showOnboarding()" class="hdr-icon-btn" title="How to use">?</button>
     <button id="install-btn" onclick="promptInstall()" style="display:none" class="install-btn">
       <i class="ti ti-download"></i> Install
     </button>
@@ -231,12 +234,15 @@
           <tbody id="sched-tbody"></tbody>
         </table>
       </div>
-      <div style="display:flex;gap:8px;margin-top:12px">
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button class="dl-btn" style="margin-top:0" onclick="exportPDF()">
           <i class="ti ti-download"></i> Download PDF
         </button>
         <button class="dl-btn" style="margin-top:0;background:var(--muted)" onclick="printPDF()">
           <i class="ti ti-printer"></i> Print
+        </button>
+        <button class="dl-btn" style="margin-top:0;background:var(--blue)" onclick="shareSchedule()">
+          <i class="ti ti-share"></i> Share
         </button>
       </div>
     </div>
@@ -300,5 +306,35 @@
     </div>
   </div>
 </div>
+<!-- Override modal -->
+<div id="override-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1002;align-items:flex-end;justify-content:center;padding:0">
+  <div style="background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px;width:100%;max-width:480px;max-height:70vh;overflow-y:auto;box-shadow:0 -4px 24px rgba(0,0,0,.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Swap at <span id="override-slot-time"></span></div>
+        <div style="font-size:12px;color:var(--muted)">Replacing <span id="override-current" style="font-weight:500;color:var(--text)"></span></div>
+      </div>
+      <button onclick="closeOverrideModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px">✕</button>
+    </div>
+    <div id="override-list"></div>
+  </div>
+</div>
+
+<!-- Onboarding modal -->
+<div id="onboarding-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1002;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:24px;max-width:460px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto">
+    <h2 style="font-size:17px;font-weight:600;margin-bottom:16px">How to Use Cart Scheduler</h2>
+    <div class="onboard-step"><span class="onboard-num">1</span><div><strong>Scan the Daily Overview</strong> — photograph each page of today's schedule. Add as many pages as needed.</div></div>
+    <div class="onboard-step"><span class="onboard-num">2</span><div><strong>Scan Cart Service Schedule</strong> (optional) — automatically fills in how many people are needed per slot.</div></div>
+    <div class="onboard-step"><span class="onboard-num">3</span><div><strong>Build the schedule</strong> — AI reads the photos and extracts all associates, shifts, and meals.</div></div>
+    <div class="onboard-step"><span class="onboard-num">4</span><div><strong>Review associates</strong> — toggle "No carts" or "No sweep" per person. Edit names with ✏️ if needed.</div></div>
+    <div class="onboard-step"><span class="onboard-num">5</span><div><strong>Set FEC</strong> — confirm the Day FEC and Closing FEC. Auto-detected when possible.</div></div>
+    <div class="onboard-step"><span class="onboard-num">6</span><div><strong>Generate</strong> — review the schedule. Tap any assigned name to swap them with someone else.</div></div>
+    <div class="onboard-step"><span class="onboard-num">7</span><div><strong>Download, Print, or Share</strong> the finished PDF. The ↩ button in the header undoes recent changes.</div></div>
+    <p style="font-size:11px;color:var(--muted);margin-top:14px">Use ☰ to manage permanent no-carts exclusions and name corrections across devices.</p>
+    <button onclick="closeOnboarding()" style="width:100%;margin-top:16px;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">Got it</button>
+  </div>
+</div>
+
 </body>
 </html>
