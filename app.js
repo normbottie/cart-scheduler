@@ -53,16 +53,30 @@ function toggleDebugMode(){
   btn.style.color=DEBUG_MODE?'white':'';
 }
 
-// ── Persistent no-carts list (localStorage) ───────────────────────────────────
+// ── KV sync helpers ───────────────────────────────────────────────────────────
+async function kvGet(key){
+  try{const r=await fetch(WORKER_URL+'/kv/'+key);if(!r.ok)return null;const d=await r.json();return d.value??null;}catch(e){return null;}
+}
+async function kvPut(key,value){
+  try{await fetch(WORKER_URL+'/kv/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});}catch(e){}
+}
+async function syncFromKV(){
+  const[remotePerms,remoteCorrections]=await Promise.all([kvGet('perm-no-carts'),kvGet('name-corrections')]);
+  if(Array.isArray(remotePerms)){remotePerms.forEach(n=>permNoCart.add(n));localStorage.setItem(PERM_KEY,JSON.stringify([...permNoCart]));}
+  if(remoteCorrections&&typeof remoteCorrections==='object'){Object.assign(nameCorrections,remoteCorrections);localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(nameCorrections));}
+  renderPermNoCartMenu();
+}
+
+// ── Persistent no-carts list (localStorage + KV) ──────────────────────────────
 const PERM_KEY='cart-scheduler-permanent-no-carts';
 function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PERM_KEY)||'[]'));}catch(e){return new Set();}}
-function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));}
+function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));kvPut('perm-no-carts',[...set]).catch(()=>{});}
 let permNoCart=loadPermNoCart();
 
-// ── Name corrections (persisted) ──────────────────────────────────────────────
+// ── Name corrections (localStorage + KV) ─────────────────────────────────────
 const CORRECTIONS_KEY='cart-scheduler-name-corrections';
 function loadCorrections(){try{return JSON.parse(localStorage.getItem(CORRECTIONS_KEY)||'{}');}catch(e){return {};}}
-function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));}
+function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));kvPut('name-corrections',obj).catch(()=>{});}
 let nameCorrections=loadCorrections(); // {wrongName: correctName}
 
 function applyCorrections(empList){
@@ -129,6 +143,7 @@ window.addEventListener('load',()=>{
   initSlots();
   renderPermNoCartMenu();
   renderHistory();
+  syncFromKV(); // pull remote KV data and merge
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
   // Show install button on iOS if not already installed
