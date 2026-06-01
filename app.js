@@ -400,7 +400,7 @@ function renderScanPreviews(){
   const thumbs=document.getElementById('scan-thumbs');
   const label=document.getElementById('scan-label');
   const count=document.getElementById('scan-count');
-  if(label) label.style.display=scannedPages.length>0?'block':'none';
+  if(label) label.style.visibility=scannedPages.length>0?'visible':'hidden';
   if(count) count.textContent=scannedPages.length;
   thumbs.innerHTML=scannedPages.map((p,i)=>`
     <div class="scan-thumb">
