@@ -1,70 +1,10 @@
 // ── Config ────────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://cart-scheduler-proxy.normbottie.workers.dev';
 
-// ── KV sync ───────────────────────────────────────────────────────────────────
-async function kvGet(key){
-  try{const r=await fetch(WORKER_URL+'/kv/'+key,{method:'GET'});if(!r.ok)return null;const d=await r.json();return d.value!==undefined?d.value:null;}catch(e){return null;}
-}
-async function kvSet(key,value){
-  try{
-    const r=await fetch(WORKER_URL+'/kv/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});
-    if(!r.ok)throw new Error('status '+r.status);
-  }catch(e){showKVError();}
-}
-function showKVError(){
-  let toast=document.getElementById('kv-toast');
-  if(!toast){
-    toast=document.createElement('div');
-    toast.id='kv-toast';
-    toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#a02020;color:white;padding:8px 16px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s';
-    toast.textContent='⚠️ Could not sync to cloud — saved locally only';
-    document.body.appendChild(toast);
-  }
-  toast.style.opacity='1';
-  clearTimeout(toast._t);
-  toast._t=setTimeout(()=>toast.style.opacity='0',4000);
-}
-async function initKVSync(){
-  const[noCartArr,splitRange,corrections]=await Promise.all([kvGet('no-carts'),kvGet('split-range'),kvGet('name-corrections')]);
-  if(Array.isArray(noCartArr)){
-    permNoCart=new Set(noCartArr);
-    localStorage.setItem(PERM_KEY,JSON.stringify(noCartArr));
-  } else {
-    if(permNoCart.size>0) kvSet('no-carts',[...permNoCart]);
-  }
-  if(splitRange&&typeof splitRange==='object'){
-    localStorage.setItem('cart-scheduler-split-range',JSON.stringify(splitRange));
-    populateSplitSelectors();
-    applySplitRange();
-  } else {
-    const saved=JSON.parse(localStorage.getItem('cart-scheduler-split-range')||'{}');
-    if(saved['split-start']||saved['split-end']) kvSet('split-range',saved);
-  }
-  if(corrections&&typeof corrections==='object'&&Object.keys(corrections).length>0){
-    nameCorrections=corrections;
-    localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(corrections));
-  } else {
-    if(Object.keys(nameCorrections).length>0) kvSet('name-corrections',nameCorrections);
-  }
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function t(h,m,pm=false){if(pm&&h!==12)h+=12;if(!pm&&h===12)h=0;return h*60+m;}
 function minsToStr(m){const h=Math.floor(m/60),mn=m%60,ap=h>=12?'PM':'AM',h12=h%12||12;return`${h12}:${mn.toString().padStart(2,'0')} ${ap}`;}
-function timeToMins(s){
-  if(!s)return null;
-  s=s.trim().toLowerCase().replace(/\s+/g,'');
-  // 24-hour format: "13:00", "09:30"
-  const mil=s.match(/^(\d{1,2}):(\d{2})$/);
-  if(mil){const h=parseInt(mil[1]),m=parseInt(mil[2]);if(h>=0&&h<24)return h*60+m;}
-  // With minutes: "9:00am", "12:30pm"
-  const wm=s.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
-  if(wm){let h=parseInt(wm[1]),m=parseInt(wm[2]),ap=wm[3];if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60+m;}
-  // No minutes: "9am", "12pm"
-  const nm=s.match(/^(\d{1,2})(am|pm)$/);
-  if(nm){let h=parseInt(nm[1]),ap=nm[2];if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60;}
-  return null;
-}
+function timeToMins(s){if(!s)return null;s=s.trim().toLowerCase();const m=s.match(/(\d+):(\d+)\s*(am|pm)/);if(!m)return null;let h=parseInt(m[1]),mn=parseInt(m[2]),ap=m[3];if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60+mn;}
 function timeInputToMins(v){if(!v)return null;const[h,m]=v.split(':').map(Number);return h*60+m;}
 
 // Convert "JOHN DOE" or "john doe" to "John Doe"
@@ -116,13 +56,13 @@ function toggleDebugMode(){
 // ── Persistent no-carts list (localStorage) ───────────────────────────────────
 const PERM_KEY='cart-scheduler-permanent-no-carts';
 function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PERM_KEY)||'[]'));}catch(e){return new Set();}}
-function savePermNoCart(set){const arr=[...set];localStorage.setItem(PERM_KEY,JSON.stringify(arr));kvSet('no-carts',arr);}
+function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));}
 let permNoCart=loadPermNoCart();
 
 // ── Name corrections (persisted) ──────────────────────────────────────────────
 const CORRECTIONS_KEY='cart-scheduler-name-corrections';
 function loadCorrections(){try{return JSON.parse(localStorage.getItem(CORRECTIONS_KEY)||'{}');}catch(e){return {};}}
-function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));kvSet('name-corrections',obj);}
+function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));}
 let nameCorrections=loadCorrections(); // {wrongName: correctName}
 
 function applyCorrections(empList){
@@ -141,14 +81,60 @@ let slotIntervals={}; // slotStart -> 15 or 30
 let scannedPages=[]; // array of {dataUrl, b64, name}
 let cartSchedImage=null; // single cart service schedule image
 
+// ── PWA Install prompt ────────────────────────────────────────────────────────
+let deferredInstallPrompt=null;
+
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  showInstallBtn();
+});
+
+window.addEventListener('appinstalled',()=>{
+  deferredInstallPrompt=null;
+  hideInstallBtn();
+});
+
+function showInstallBtn(){
+  const btn=document.getElementById('install-btn');
+  if(btn) btn.style.display='flex';
+}
+function hideInstallBtn(){
+  const btn=document.getElementById('install-btn');
+  if(btn) btn.style.display='none';
+}
+
+async function promptInstall(){
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
+  if(isStandalone){hideInstallBtn();return;}
+  if(isIOS){
+    document.getElementById('ios-install-modal').style.display='flex';
+    return;
+  }
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    const{outcome}=await deferredInstallPrompt.userChoice;
+    if(outcome==='accepted'){deferredInstallPrompt=null;hideInstallBtn();}
+  }
+}
+
+function closeIOSModal(){
+  document.getElementById('ios-install-modal').style.display='none';
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
   checkTerms();
   initSlots();
   renderPermNoCartMenu();
-  initKVSync().then(()=>{renderPermNoCartMenu();});
   renderHistory();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+  // Show install button on iOS if not already installed
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
+  if(isIOS&&!isStandalone) showInstallBtn();
   // PDF upload removed
   // Close menu on outside click
   document.getElementById('cart-sched-input').addEventListener('change',e=>{
@@ -231,7 +217,7 @@ function renderPermNoCartMenu(){
     permNoCart.forEach(name=>{
       const div=document.createElement('div');div.className='perm-row';
       const btn=document.createElement('button');btn.textContent='✕';
-      btn.onclick=e=>{e.stopPropagation();removePermNoCart(name);};
+      btn.onclick=()=>removePermNoCart(name);
       div.innerHTML='<span>'+name+'</span>';
       div.appendChild(btn);list.appendChild(div);
     });
@@ -305,7 +291,7 @@ function initSlots(){
     slotIntervals[m]=30;
   });
   populateSplitSelectors();
-  applySplitRange(); // applies saved intervals and calls renderSlotTable
+  renderSlotTable();
 }
 
 function populateSplitSelectors(){
@@ -327,9 +313,7 @@ function applySplitRange(){
   const startVal=document.getElementById('split-start').value;
   const endVal=document.getElementById('split-end').value;
   // Persist selection
-  const splitObj={'split-start':startVal,'split-end':endVal};
-  localStorage.setItem('cart-scheduler-split-range',JSON.stringify(splitObj));
-  kvSet('split-range',splitObj);
+  localStorage.setItem('cart-scheduler-split-range',JSON.stringify({'split-start':startVal,'split-end':endVal}));
   // Reset all to 30-min first
   BASE_SLOTS.forEach(m=>{
     slotIntervals[m]=30;
@@ -393,38 +377,33 @@ function clearFile(){
 }
 
 // ── Scan functions ───────────────────────────────────────────────────────────
-async function compressImage(file, maxWidth=1568, quality=0.85){
-  const compress=(w,q)=>new Promise((resolve)=>{
+async function compressImage(file, maxWidth=2400, quality=0.92){
+  return new Promise((resolve)=>{
     const img=new Image();
     const url=URL.createObjectURL(file);
     img.onload=()=>{
-      const scale=Math.min(1, w/img.width);
-      const cw=Math.round(img.width*scale), ch=Math.round(img.height*scale);
+      const scale=Math.min(1, maxWidth/img.width);
+      const w=Math.round(img.width*scale);
+      const h=Math.round(img.height*scale);
       const canvas=document.createElement('canvas');
-      canvas.width=cw; canvas.height=ch;
-      canvas.getContext('2d').drawImage(img,0,0,cw,ch);
+      canvas.width=w; canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
       canvas.toBlob(blob=>{
         URL.revokeObjectURL(url);
         const reader=new FileReader();
         reader.onload=e=>{
-          const b64=e.target.result.split(',')[1];
+          const dataUrl=e.target.result;
+          const b64=dataUrl.split(',')[1];
           console.log('Compressed image: '+Math.round(b64.length/1024)+'KB');
           resolve({b64,mediaType:'image/jpeg'});
         };
         reader.readAsDataURL(blob);
-      },'image/jpeg',q);
+      },'image/jpeg',quality);
     };
     img.onerror=()=>resolve(null);
     img.src=url;
   });
-  const result=await compress(maxWidth,quality);
-  if(!result)return null;
-  // Second pass if still over 1MB base64 (~750KB raw)
-  if(result.b64.length>1024*1024){
-    console.log('Image still large, re-compressing...');
-    return compress(1200, 0.75);
-  }
-  return result;
 }
 
 function addScannedPage(file, inputEl){
@@ -452,7 +431,7 @@ function renderScanPreviews(){
   const thumbs=document.getElementById('scan-thumbs');
   const label=document.getElementById('scan-label');
   const count=document.getElementById('scan-count');
-  if(label) label.style.visibility=scannedPages.length>0?'visible':'hidden';
+  if(label) label.style.display=scannedPages.length>0?'block':'none';
   if(count) count.textContent=scannedPages.length;
   thumbs.innerHTML=scannedPages.map((p,i)=>`
     <div class="scan-thumb">
@@ -1125,7 +1104,7 @@ function buildSchedule(){
   [...new Set(employees.map(e=>e.name))].forEach(n=>{slotCounts[n]=0;sweepCounts[n]=0;});
 
   const schedule=SLOTS.map((ss,i)=>{
-    const se=ss+30,cap=slotCaps[ss]||0,stype=slotTypes[ss]||'cart',maxC=stype==='lot'?Infinity:1;
+    const se=ss+30,cap=slotCaps[ss]||0,stype=slotTypes[ss]||'cart',maxC=stype==='lot'?2:1;
     const inF1=isFecWin(fec1Name,ss,fec1Start,fec1End);
     const inF2=isFecWin(fec2Name,ss,fec2Start,fec2End);
 

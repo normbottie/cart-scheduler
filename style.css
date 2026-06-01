@@ -83,6 +83,9 @@ main{max-width:900px;margin:0 auto;padding:20px 16px}
 .tag{font-size:10px;padding:1px 5px;border-radius:3px;margin-left:3px}
 
 /* ── Menu button ── */
+.install-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:12px;font-weight:500;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer;white-space:nowrap;}
+.install-btn:hover{opacity:.85;}
+.install-btn i{font-size:13px;}
 .menu-btn{background:none;border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;font-size:16px;cursor:pointer;color:var(--text);}
 .menu-btn:hover{background:var(--border);}
 #perm-menu{position:fixed;top:56px;left:16px;width:280px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.12);}
