@@ -212,7 +212,6 @@ input,textarea,select{
   width:48px;height:56px;text-align:center;font-size:24px;font-weight:700;
   border:2px solid var(--border2);border-radius:var(--radius);
   background:var(--bg);color:var(--text);
-  -webkit-text-security:disc;text-security:disc;
   -webkit-user-select:text;user-select:text;
 }
 .pin-digit:focus{outline:none;border-color:var(--accent);}

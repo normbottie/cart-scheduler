@@ -296,11 +296,11 @@ window.addEventListener('load',()=>{
 // ── Terms agreement ──────────────────────────────────────────────────────────
 const PIN='1117'; // store number as default PIN
 const PIN_KEY='cart-scheduler-pin-ok';
+const pinDigits=['','','',''];
 
 function checkTerms(){
   const modal=document.getElementById('terms-modal');
   modal.style.display='flex';
-  // If PIN already verified on this device, skip straight to terms
   if(localStorage.getItem(PIN_KEY)==='1'){
     document.getElementById('pin-section').style.display='none';
     document.getElementById('terms-section').style.display='block';
@@ -313,17 +313,32 @@ function checkTerms(){
 
 function pinInput(idx){
   const inp=document.getElementById('pin-'+idx);
-  // Only allow digits
-  inp.value=inp.value.replace(/[^0-9]/g,'');
-  if(inp.value&&idx<3){
-    document.getElementById('pin-'+(idx+1)).focus();
+  const raw=inp.value.replace(/●/g,'').replace(/[^0-9]/g,'');
+  if(raw){
+    pinDigits[idx]=raw.slice(-1);
+    inp.value='●';
+    if(idx<3)document.getElementById('pin-'+(idx+1)).focus();
+    if(idx===3)checkPin();
+  } else {
+    pinDigits[idx]='';
+    inp.value='';
   }
-  // Auto-submit when last digit entered
-  if(idx===3&&inp.value) checkPin();
+}
+
+function pinKeydown(idx,e){
+  if(e.key==='Backspace'){
+    const inp=document.getElementById('pin-'+idx);
+    if(inp.value===''&&idx>0){
+      pinDigits[idx-1]='';
+      const prev=document.getElementById('pin-'+(idx-1));
+      prev.value='';
+      prev.focus();
+    }
+  }
 }
 
 function checkPin(){
-  const entered=[0,1,2,3].map(i=>document.getElementById('pin-'+i).value).join('');
+  const entered=pinDigits.join('');
   if(entered===PIN){
     localStorage.setItem(PIN_KEY,'1');
     document.getElementById('pin-section').style.display='none';
@@ -331,6 +346,7 @@ function checkPin(){
     document.getElementById('pin-error').style.display='none';
   } else {
     document.getElementById('pin-error').style.display='block';
+    pinDigits.fill('');
     [0,1,2,3].forEach(i=>document.getElementById('pin-'+i).value='');
     document.getElementById('pin-0').focus();
   }
