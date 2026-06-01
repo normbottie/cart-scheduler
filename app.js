@@ -258,7 +258,7 @@ function initSlots(){
     slotIntervals[m]=30;
   });
   populateSplitSelectors();
-  renderSlotTable();
+  applySplitRange(); // applies saved intervals and calls renderSlotTable
 }
 
 function populateSplitSelectors(){
