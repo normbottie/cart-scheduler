@@ -10,8 +10,22 @@ async function kvSet(key,value){
 }
 async function initKVSync(){
   const[noCartArr,splitRange]=await Promise.all([kvGet('no-carts'),kvGet('split-range')]);
-  if(Array.isArray(noCartArr)){permNoCart=new Set(noCartArr);localStorage.setItem(PERM_KEY,JSON.stringify(noCartArr));}
-  if(splitRange&&typeof splitRange==='object'){localStorage.setItem('cart-scheduler-split-range',JSON.stringify(splitRange));populateSplitSelectors();}
+  if(Array.isArray(noCartArr)){
+    permNoCart=new Set(noCartArr);
+    localStorage.setItem(PERM_KEY,JSON.stringify(noCartArr));
+  } else {
+    // Migrate: push localStorage data up to KV if KV is empty
+    if(permNoCart.size>0) kvSet('no-carts',[...permNoCart]);
+  }
+  if(splitRange&&typeof splitRange==='object'){
+    localStorage.setItem('cart-scheduler-split-range',JSON.stringify(splitRange));
+    populateSplitSelectors();
+    applySplitRange();
+  } else {
+    // Migrate: push localStorage split-range up to KV if KV is empty
+    const saved=JSON.parse(localStorage.getItem('cart-scheduler-split-range')||'{}');
+    if(saved['split-start']||saved['split-end']) kvSet('split-range',saved);
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -184,7 +198,7 @@ function renderPermNoCartMenu(){
     permNoCart.forEach(name=>{
       const div=document.createElement('div');div.className='perm-row';
       const btn=document.createElement('button');btn.textContent='✕';
-      btn.onclick=()=>removePermNoCart(name);
+      btn.onclick=e=>{e.stopPropagation();removePermNoCart(name);};
       div.innerHTML='<span>'+name+'</span>';
       div.appendChild(btn);list.appendChild(div);
     });
