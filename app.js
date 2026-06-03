@@ -218,6 +218,7 @@ let feedbackType = 'bug';
 function openFeedback(){
   document.getElementById('feedback-modal').style.display='flex';
   document.getElementById('feedback-text').value='';
+  document.getElementById('feedback-name').value='';
   document.getElementById('feedback-status').textContent='';
   feedbackType='bug';
   document.querySelectorAll('.feedback-type-btn').forEach(b=>b.classList.remove('active'));
@@ -241,8 +242,9 @@ async function submitFeedback(){
   if(!msg){status.textContent='Please enter a message.';return;}
   status.textContent='Sending...';
   try{
+    const name=document.getElementById('feedback-name').value.trim();
     const r=await fetch(WORKER_URL+'/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:msg,type:feedbackType})});
+      body:JSON.stringify({message:msg,type:feedbackType,name})});
     if(r.ok){
       status.style.color='var(--green,#2d7a3a)';
       status.textContent='Sent! Thank you.';
@@ -267,17 +269,27 @@ async function loadFeedbackInbox(){
     if(!r.ok){list.textContent='Could not load feedback.';return;}
     const data=await r.json();
     if(!data.list||data.list.length===0){list.textContent='No feedback yet.';return;}
-    list.innerHTML=data.list.map(f=>{
+    const clearBtn=document.createElement('button');
+    clearBtn.textContent='Clear all';
+    clearBtn.className='sm-btn';
+    clearBtn.style.cssText='font-size:10px;padding:3px 8px;margin-bottom:8px;background:var(--red);color:#fff;border:none';
+    clearBtn.onclick=async()=>{if(!confirm('Clear all feedback?'))return;await fetch(WORKER_URL+'/kv/feedback',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:[]})});loadFeedbackInbox();};
+    list.innerHTML='';
+    list.appendChild(clearBtn);
+    const items=document.createElement('div');
+    items.innerHTML=data.list.map(f=>{
       const d=new Date(f.ts);
       const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
       return`<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;gap:6px;margin-bottom:3px">
+        <div style="display:flex;gap:6px;margin-bottom:3px;flex-wrap:wrap">
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--accent)">${f.type}</span>
+          ${f.name?`<span style="font-size:10px;font-weight:600;color:var(--text)">${f.name}</span>`:''}
           <span style="font-size:10px;color:var(--muted)">${dateStr}</span>
         </div>
         <div style="font-size:12px;color:var(--text)">${f.message.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
       </div>`;
     }).join('');
+    list.appendChild(items);
   }catch(e){list.textContent='Error loading feedback.';}
 }
 
