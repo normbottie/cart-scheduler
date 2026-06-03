@@ -3,7 +3,7 @@
 A mobile-first Progressive Web App (PWA) for generating cart/sweep schedules at Kroger store 1117. Built by Norm Bottie.
 
 ## Live App
-**Production (stable):** https://nabotomy.github.io/cart-scheduler/
+**Production (stable):** https://normbottie.github.io/cart-scheduler/
 - Deployed from `main` branch
 - Tagged `v1.0-stable`
 
@@ -21,7 +21,7 @@ A mobile-first Progressive Web App (PWA) for generating cart/sweep schedules at 
 
 **Worker URL:** `https://cart-scheduler-proxy.normbottie.workers.dev`  
 **Worker secret:** `ANTHROPIC_API_KEY` set via `wrangler secret put`  
-**Repo:** `https://github.com/nabotomy/cart-scheduler`
+**Repo:** `https://github.com/normbottie/cart-scheduler`
 
 ## Key Files
 - `app.js` — all application logic (~1100 lines)
