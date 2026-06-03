@@ -207,6 +207,15 @@ function acceptTerms(){
 }
 
 // ── Permanent no-cart menu ────────────────────────────────────────────────────
+function reloadApp(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(regs=>{
+      regs.forEach(r=>r.update());
+    });
+  }
+  window.location.reload(true);
+}
+
 function toggleMenu(){
   const m=document.getElementById('perm-menu');
   const opening=m.style.display!=='block';
