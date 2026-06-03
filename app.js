@@ -246,9 +246,12 @@ function renderPermNoCartMenu(){
   });
 }
 
-function removeCorrection(wrong){
+async function removeCorrection(wrong){
+  const latest=await kvGet('name-corrections');
+  if(latest&&typeof latest==='object') nameCorrections={...latest};
   delete nameCorrections[wrong];
-  saveCorrections(nameCorrections);
+  localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(nameCorrections));
+  try{await kvPut('name-corrections',nameCorrections);}catch(e){showKvToast('Sync failed — saved locally only');}
   renderPermNoCartMenu();
 }
 
