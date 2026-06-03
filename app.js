@@ -239,10 +239,11 @@ function setFeedbackType(btn, type){
 async function submitFeedback(){
   const msg=document.getElementById('feedback-text').value.trim();
   const status=document.getElementById('feedback-status');
+  const name=document.getElementById('feedback-name').value.trim();
+  if(!name){status.textContent='Please enter your name.';return;}
   if(!msg){status.textContent='Please enter a message.';return;}
   status.textContent='Sending...';
   try{
-    const name=document.getElementById('feedback-name').value.trim();
     const r=await fetch(WORKER_URL+'/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({message:msg,type:feedbackType,name})});
     if(r.ok){
