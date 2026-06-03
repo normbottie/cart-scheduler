@@ -3,18 +3,14 @@
 A mobile-first Progressive Web App (PWA) for generating cart/sweep schedules at Kroger store 1117. Built by Norm Bottie.
 
 ## Live App
-**Production (stable):** https://normbottie.github.io/cart-scheduler/
+**Live app:** https://normbottie.github.io/cart-scheduler/
 - Deployed from `main` branch
-- Tagged `v1.0-stable`
-
-**Development (v2):** Deploy from `v2-dev` branch via GitHub Pages settings
-- 15-minute scheduling, history, PIN gate, date extraction, and more
 
 ## Architecture
 
 | Component | Technology | Location |
 |-----------|-----------|----------|
-| Frontend | Vanilla JS + HTML/CSS PWA | `main` / `v2-dev` branch |
+| Frontend | Vanilla JS + HTML/CSS PWA | `main` branch |
 | AI Proxy | Cloudflare Worker | `cart-scheduler-worker/` folder |
 | AI Model | Claude claude-sonnet-4-5 via Anthropic API | Via worker |
 | Hosting | GitHub Pages (GitHub Actions deploy) | `.github/workflows/deploy.yml` |
@@ -115,8 +111,7 @@ Loads mock data instantly, skips all AI calls. Mock includes ~11 associates cove
 cd cart-scheduler
 git add .
 git commit -m "your message"
-git push origin main        # production
-git push origin v2-dev      # development
+git push origin main
 
 # Worker
 cd cart-scheduler-worker
