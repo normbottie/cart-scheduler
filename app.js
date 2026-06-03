@@ -748,7 +748,7 @@ function renderAssociates(){
     const fecNote=(e.autoFecSegments&&e.autoFecSegments.length)?`<div class="meal" style="color:var(--blue)">Auto-FEC: ${e.autoFecSegments.map(s=>`${s.start}–${s.end}`).join(', ')}</div>`:'';
     const permNote=isPerm?`<div class="meal" style="color:var(--red)">Permanently excluded from carts</div>`:'';
     div.innerHTML='';
-    // Header row with name and edit button
+    // Header row with name and edit buttons
     const headerRow=document.createElement('div');
     headerRow.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:6px';
     const nameInfo=document.createElement('div');
@@ -756,9 +756,14 @@ function renderAssociates(){
     const editBtn=document.createElement('button');
     editBtn.className='edit-name-btn';editBtn.title='Edit name';editBtn.textContent='✏️';
     editBtn.onclick=(()=>{const idx=i;return()=>startEditName(idx);})();
-    headerRow.appendChild(nameInfo);headerRow.appendChild(editBtn);
+    const windowBtn=document.createElement('button');
+    windowBtn.className='edit-name-btn';windowBtn.title='Edit cart window';windowBtn.textContent='⏱️';
+    windowBtn.onclick=(()=>{const idx=i;return()=>startEditWindow(idx);})();
+    const btnGroup=document.createElement('div');btnGroup.style.cssText='display:flex;gap:2px;flex-shrink:0';
+    btnGroup.appendChild(windowBtn);btnGroup.appendChild(editBtn);
+    headerRow.appendChild(nameInfo);headerRow.appendChild(btnGroup);
     div.appendChild(headerRow);
-    // Inline edit row
+    // Inline name edit row
     const editRow=document.createElement('div');
     editRow.className='name-edit-row';editRow.id='name-edit-'+i;editRow.style.display='none';
     const inp=document.createElement('input');inp.type='text';inp.className='name-edit-input';
@@ -770,6 +775,23 @@ function renderAssociates(){
     cancelBtn.onclick=(()=>{const idx=i;return()=>cancelEditName(idx);})();
     editRow.appendChild(inp);editRow.appendChild(saveBtn);editRow.appendChild(cancelBtn);
     div.appendChild(editRow);
+    // Window edit row
+    const windowEditRow=document.createElement('div');
+    windowEditRow.className='name-edit-row';windowEditRow.id='window-edit-'+i;windowEditRow.style.display='none';
+    const wLabel=document.createElement('span');wLabel.textContent='Window:';wLabel.style.cssText='font-size:12px;color:var(--muted);white-space:nowrap;margin-right:4px';
+    const startInp=document.createElement('input');startInp.type='time';startInp.id='window-start-'+i;
+    startInp.value=cartStrToInput(e.cartStart);
+    startInp.style.cssText='flex:1;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)';
+    const wDash=document.createElement('span');wDash.textContent='–';wDash.style.cssText='margin:0 4px;font-size:12px;color:var(--muted)';
+    const endInp=document.createElement('input');endInp.type='time';endInp.id='window-end-'+i;
+    endInp.value=cartStrToInput(e.cartEnd);
+    endInp.style.cssText='flex:1;font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)';
+    const wSaveBtn=document.createElement('button');wSaveBtn.className='sm-btn';wSaveBtn.textContent='Save';
+    wSaveBtn.onclick=(()=>{const idx=i;return()=>saveEditWindow(idx);})();
+    const wCancelBtn=document.createElement('button');wCancelBtn.className='sm-btn';wCancelBtn.textContent='✕';
+    wCancelBtn.onclick=(()=>{const idx=i;return()=>cancelEditWindow(idx);})();
+    windowEditRow.appendChild(wLabel);windowEditRow.appendChild(startInp);windowEditRow.appendChild(wDash);windowEditRow.appendChild(endInp);windowEditRow.appendChild(wSaveBtn);windowEditRow.appendChild(wCancelBtn);
+    div.appendChild(windowEditRow);
     // Toggles
     const toggles=document.createElement('div');toggles.className='toggles';toggles.style.marginTop='8px';
     const cartBtn=document.createElement('button');
@@ -783,110 +805,6 @@ function renderAssociates(){
     sweepBtn.onclick=function(){toggleExclude('sweep',e.name,this);};
     toggles.appendChild(cartBtn);toggles.appendChild(sweepBtn);
     div.appendChild(toggles)
-    grid.appendChild(div);
-  });
-}
-
-function jobLabel(j){return{fsc:'Front Svc Clerk',cashier:'Cashier',css:'CS Staff',cstl:'CS Team Leader',csm:'CS Manager',mgr:'Manager'}[j]||j;}
-
-function toggleExclude(type,name,btn){
-  const set=type==='cart'?excludeFromCarts:excludeFromSweep;
-  const cls=type==='cart'?'active-no-cart':'active-no-sweep';
-  const label=type==='cart'?'No carts':'No sweep';
-  if(set.has(name)){set.delete(name);btn.classList.remove(cls);btn.textContent=label;}
-  else{set.add(name);btn.classList.add(cls);btn.textContent=`✕ ${label}`;}
-}
-
-
-// ── Name editing ──────────────────────────────────────────────────────────────
-function cancelEditName(i){
-  document.getElementById('name-edit-'+i).style.display='none';
-  document.getElementById('name-input-'+i).value=employees[i].name;
-}
-function saveEditName(i){
-  const newName=document.getElementById('name-input-'+i).value.trim();
-  if(!newName)return;
-  const oldName=employees[i].name;
-  if(oldName===newName){document.getElementById('name-edit-'+i).style.display='none';return;}
-  // Ask if they want to save this correction permanently
-  const savePerm=confirm('Save "'+oldName+'" → "'+newName+'" as a permanent correction?\nNext time this name appears it will be auto-fixed.');
-  if(savePerm){
-    nameCorrections[oldName]=newName;
-    // Also carry forward any previous corrections pointing to oldName
-    Object.keys(nameCorrections).forEach(k=>{if(nameCorrections[k]===oldName)nameCorrections[k]=newName;});
-    saveCorrections(nameCorrections);
-  }
-  // Update all entries with this name (split shifts)
-  employees.forEach(e=>{if(e.name===oldName)e.name=newName;});
-  // Update exclusion sets
-  if(excludeFromCarts.has(oldName)){excludeFromCarts.delete(oldName);excludeFromCarts.add(newName);}
-  if(excludeFromSweep.has(oldName)){excludeFromSweep.delete(oldName);excludeFromSweep.add(newName);}
-  document.getElementById('name-edit-'+i).style.display='none';
-  renderAssociates();
-  renderFECOptions();
-}
-
-// ── FEC options ───────────────────────────────────────────────────────────────
-function renderFECOptions(){
-  const candidates=employees.filter(e=>['css','cstl','csm','mgr'].includes(e.job));
-  const autoFecs=employees.filter(e=>e.autoFecSegments&&e.autoFecSegments.length>0);
-
-  // Auto-FEC callout
-  const autoFecDiv=document.getElementById('auto-fec-callout');
-  const fec1Box=document.getElementById('fec1-box');
-  if(autoFecs.length>0){
-    autoFecDiv.innerHTML='<div class="lbl" style="margin-bottom:6px">Auto-detected CS-FEC</div>'+
-      autoFecs.map(e=>`<div class="auto-fec-row"><span class="auto-fec-tag">Auto-FEC</span> ${e.name} — ${e.autoFecSegments.map(s=>`${s.start}–${s.end}`).join(', ')}</div>`).join('');
-    autoFecDiv.style.display='block';
-    if(fec1Box) fec1Box.style.display='none'; // hide day FEC if auto-detected
-  } else {
-    autoFecDiv.style.display='none';
-    if(fec1Box) fec1Box.style.display='block';
-  }
-
-  // Suggest closing FEC — CSS with latest CS-Bag end time
-  const cssBag=employees.filter(e=>e.job==='css'&&e.cartEnd);
-  const suggestedFec2=cssBag.sort((a,b)=>timeToMins(b.cartEnd)-timeToMins(a.cartEnd))[0];
-
-  const fecSuggest=document.getElementById('fec-suggestion');
-  if(suggestedFec2){
-    fecSuggest.innerHTML='';
-    const sugBox=document.createElement('div');
-    sugBox.className='fec-suggest-box';
-    sugBox.style.cssText='flex-direction:column;gap:10px;background:#eef4ff;border-color:#1a4fa0';
-    sugBox.innerHTML='<div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">&#x1F4A1;</span><div><div style="font-weight:600;font-size:14px">Suggested Closing FEC: <em>'+suggestedFec2.name+'</em></div><div style="font-size:12px;color:#666">CS-Bag until '+suggestedFec2.cartEnd+'</div></div></div>';
-    const btnRow=document.createElement('div');btnRow.style.display='flex';btnRow.style.gap='8px';
-    const confirmBtn=document.createElement('button');
-    confirmBtn.className='parse-btn';confirmBtn.style.cssText='padding:8px 16px;font-size:13px;width:auto;margin-top:0';
-    confirmBtn.textContent='✓ Confirm as Closing FEC';
-    confirmBtn.onclick=()=>confirmSuggestedFec(suggestedFec2.name);
-    const changeBtn=document.createElement('button');changeBtn.className='sm-btn';changeBtn.textContent='Change';
-    changeBtn.onclick=()=>{document.getElementById('fec2-select').value='';fecSuggest.style.display='none';};
-    btnRow.appendChild(confirmBtn);btnRow.appendChild(changeBtn);
-    sugBox.appendChild(btnRow);fecSuggest.appendChild(sugBox);
-    fecSuggest.style.display='block';
-  } else {
-    fecSuggest.style.display='none';
-  }
-  const seen=new Set();
-  employees.forEach(e=>{
-    if(seen.has(e.name))return;seen.add(e.name);
-    const noCart=excludeFromCarts.has(e.name)||permNoCart.has(e.name);
-    const noSweep=excludeFromSweep.has(e.name);
-    const isPerm=permNoCart.has(e.name);
-    const div=document.createElement('div');div.className='assoc-card';
-    const range=e.cartStart?`${e.cartStart}–${e.cartEnd}`:'No CS-Bag';
-    const meal=e.mealStart?`<div class="meal">Meal: ${e.mealStart}–${e.mealEnd}</div>`:'';
-    const fecNote=(e.autoFecSegments&&e.autoFecSegments.length)?`<div class="meal" style="color:var(--blue)">Auto-FEC: ${e.autoFecSegments.map(s=>`${s.start}–${s.end}`).join(', ')}</div>`:'';
-    const permNote=isPerm?`<div class="meal" style="color:var(--red)">Permanently excluded from carts</div>`:'';
-    div.innerHTML=`
-      <div class="name">${e.name}</div>
-      <div class="meta">${jobLabel(e.job)} · ${range}</div>
-      ${meal}${fecNote}${permNote}
-      <div class="toggles">
-        <button class="tog ${noCart?'active-no-cart':''}" ${isPerm?'disabled title="Permanently excluded"':''} onclick="toggleExclude('cart','${e.name.replace(/'/g,"\\'")}',this)">${noCart?'✕ No carts':'No carts'}</button>
-        <button class="tog ${noSweep?'active-no-sweep':''}" onclick="toggleExclude('sweep','${e.name.replace(/'/g,"\\'")}',this)">${noSweep?'✕ No sweep':'No sweep'}</button>
-      </div>`;
     grid.appendChild(div);
   });
 }
@@ -935,6 +853,21 @@ function saveEditName(i){
   renderFECOptions();
 }
 
+// ── Window editing ─────────────────────────────────────────────────────────────
+function cartStrToInput(s){if(!s)return '';const m=s.match(/(\d+):(\d+)(am|pm)/i);if(!m)return '';let h=parseInt(m[1]),mn=parseInt(m[2]);const ap=m[3].toLowerCase();if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return `${h.toString().padStart(2,'00')}:${mn.toString().padStart(2,'00')}`;}
+function inputToCartStr(v){if(!v)return null;const[h,mn]=v.split(':').map(Number);if(isNaN(h)||isNaN(mn))return null;const ap=h>=12?'pm':'am';const h12=h%12||12;return `${h12}:${mn.toString().padStart(2,'00')}${ap}`;}
+function startEditWindow(i){document.getElementById('window-edit-'+i).style.display='flex';document.getElementById('window-start-'+i).value=cartStrToInput(employees[i].cartStart);document.getElementById('window-end-'+i).value=cartStrToInput(employees[i].cartEnd);}
+function cancelEditWindow(i){document.getElementById('window-edit-'+i).style.display='none';}
+function saveEditWindow(i){
+  const newStart=inputToCartStr(document.getElementById('window-start-'+i).value);
+  const newEnd=inputToCartStr(document.getElementById('window-end-'+i).value);
+  employees[i].cartStart=newStart;
+  employees[i].cartEnd=newEnd;
+  document.getElementById('window-edit-'+i).style.display='none';
+  renderAssociates();
+  renderFECOptions();
+}
+
 // ── FEC options ───────────────────────────────────────────────────────────────
 function renderFECOptions(){
   const candidates=employees.filter(e=>['css','cstl','csm','mgr'].includes(e.job));
@@ -959,7 +892,20 @@ function renderFECOptions(){
 
   const fecSuggest=document.getElementById('fec-suggestion');
   if(suggestedFec2){
-    // FEC suggestion handled above
+    fecSuggest.innerHTML='';
+    const sugBox=document.createElement('div');
+    sugBox.className='fec-suggest-box';
+    sugBox.style.cssText='flex-direction:column;gap:10px;background:#eef4ff;border-color:#1a4fa0';
+    sugBox.innerHTML='<div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">&#x1F4A1;</span><div><div style="font-weight:600;font-size:14px">Suggested Closing FEC: <em>'+suggestedFec2.name+'</em></div><div style="font-size:12px;color:#666">CS-Bag until '+suggestedFec2.cartEnd+'</div></div></div>';
+    const btnRow=document.createElement('div');btnRow.style.display='flex';btnRow.style.gap='8px';
+    const confirmBtn=document.createElement('button');
+    confirmBtn.className='parse-btn';confirmBtn.style.cssText='padding:8px 16px;font-size:13px;width:auto;margin-top:0';
+    confirmBtn.textContent='✓ Confirm as Closing FEC';
+    confirmBtn.onclick=()=>confirmSuggestedFec(suggestedFec2.name);
+    const changeBtn=document.createElement('button');changeBtn.className='sm-btn';changeBtn.textContent='Change';
+    changeBtn.onclick=()=>{document.getElementById('fec2-select').value='';fecSuggest.style.display='none';};
+    btnRow.appendChild(confirmBtn);btnRow.appendChild(changeBtn);
+    sugBox.appendChild(btnRow);fecSuggest.appendChild(sugBox);
     fecSuggest.style.display='block';
   } else {
     fecSuggest.style.display='none';
@@ -1391,7 +1337,7 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
     if(fec1Name)notes.push('* '+firstLast(fec1Name)+' is a designated FEC — placed on carts due to insufficient coverage');
     if(fec2Name&&fec2Name!==fec1Name)notes.push('* '+firstLast(fec2Name)+' is a designated FEC — placed on carts due to insufficient coverage');
   }
-  if(hasMgr)notes.push('\u2020 CS Team Leader/Manager placed on carts only where no other associate was available');
+  if(hasMgr)notes.push('† CS Team Leader/Manager placed on carts only where no other associate was available');
   const FOOTER_SPACE=notes.length*9+30;
   const newPage=()=>{
     doc.addPage();
@@ -1410,7 +1356,7 @@ function buildPDFDoc(jsPDF,schedule,fec1Name,fec2Name,scheduleDate){
     else{doc.setTextColor(0,0,0);doc.text(String(s.cap),COL_NUM,y+ROW_H/2+3);}
     doc.setTextColor(0,0,0);
     s.assigned.slice(0,MAX_A).forEach(function(a,ci){
-      doc.text(firstLast(a.name)+(a.fecOn?' *':a.isMgr?' \u2020':''),COL_A+ci*A_SUB_W,y+ROW_H/2+3);
+      doc.text(firstLast(a.name)+(a.fecOn?' *':a.isMgr?' †':''),COL_A+ci*A_SUB_W,y+ROW_H/2+3);
     });
     if(s.sweep){
       doc.setTextColor(26,107,58);
