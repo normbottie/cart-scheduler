@@ -36,14 +36,14 @@ A mobile-first Progressive Web App (PWA) for generating cart/sweep schedules at 
 ### Step 1 — Upload
 - **Scan Daily Overview** — camera scan, multiple pages, auto-compressed before sending
 - **Scan Cart Service Schedule** — optional; auto-fills slot capacities and Lot/Bag types from Parking Lot column
-- **15-minute scheduling** — specify a From/To time range; all slots in that range split into 15-min pairs (persisted in localStorage)
+- **15-minute scheduling** — specify a From/To time range; all slots in that range split into 15-min pairs (persisted via KV + localStorage)
 - **Page validation** — AI checks each scanned image is the correct document type before parsing
 
 ### Step 2 — Associates Found
 - Cards show name, job, cart window, meal, auto-FEC segments
-- **✏️ pencil edit** — fix names inline; prompts to save as permanent correction (auto-applied on future scans)
+- **✏️ pencil edit** — fix names inline; prompts to save as permanent correction (auto-applied on future scans, synced cross-device via KV)
 - **No carts / No sweep** toggles per day
-- **Permanent no-carts list** — saved to localStorage, managed via ☰ menu
+- **Permanent no-carts list** — synced cross-device via Cloudflare KV, managed via ☰ menu
 
 ### Step 3 — FEC Assignment
 - Auto-detected CS-FEC shown
@@ -105,12 +105,6 @@ A mobile-first Progressive Web App (PWA) for generating cart/sweep schedules at 
 | `cart-scheduler-history` | Last 7 days of saved PDF schedules |
 | `cart-scheduler-pin-ok` | PIN verified flag per device |
 
-## KV Keys (Cloudflare)
-| Key | Purpose |
-|-----|---------|
-| `perm-no-carts` | Permanent no-carts list (cross-device) |
-| `name-corrections` | Name correction mappings (cross-device) |
-
 ## Debug Mode
 In browser console: `DEBUG_MODE = true`  
 Loads mock data instantly, skips all AI calls. Mock includes ~11 associates covering most scheduling scenarios.
@@ -132,9 +126,11 @@ wrangler deploy
 ## Worker API
 - `POST /` with standard Anthropic messages body → `{success: true, employees: [...]}`
 - Add `_rawParse: true` to body → `{content: [...], raw: "..."}` (used for cart schedule and validation calls)
+- `GET /kv/:key` → `{value: ...}` — read from KV
+- `PUT /kv/:key` with `{value: ...}` body → `{ok: true}` — write to KV
 - PDF beta header included: `anthropic-beta: pdfs-2024-09-25`
 
 ## Known To-Do
 - ~~Cloudflare KV sync for permanent no-carts list (cross-device)~~ ✅ Complete
-- More robust AM/PM time parsing for edge cases
+- ~~More robust AM/PM time parsing for edge cases~~ ✅ Complete
 - Time window editor for individual associate cart windows
