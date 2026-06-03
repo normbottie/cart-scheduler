@@ -34,14 +34,17 @@
     <input type="text" id="perm-input" placeholder="Associate name..." style="flex:1;padding:6px 8px;font-size:16px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
     <button class="sm-btn" onclick="addPermNoCart()">Add</button>
   </div>
-  <div id="feedback-inbox-section" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
-    <div style="font-size:12px;font-weight:600;margin-bottom:6px">Feedback Inbox</div>
-    <div id="feedback-inbox-list" style="font-size:11px;color:var(--muted)">Loading...</div>
-  </div>
+
   <div id="corrections-section" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">Name Corrections</div>
     <p style="font-size:11px;color:var(--muted);margin-bottom:6px">Auto-fixed next time these names appear</p>
     <div id="corrections-list"></div>
+  </div>
+  <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:8px">
+    <button onclick="toggleFeedbackInbox()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer;padding:0">View feedback inbox ▾</button>
+    <div id="feedback-inbox-section" style="display:none;margin-top:8px">
+      <div id="feedback-inbox-list" style="font-size:11px;color:var(--muted)">Loading...</div>
+    </div>
   </div>
 </div>
 

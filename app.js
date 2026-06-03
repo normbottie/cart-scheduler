@@ -1,6 +1,28 @@
 // ── Config ────────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://cart-scheduler-proxy.normbottie.workers.dev';
 
+
+// ── KV sync helpers ───────────────────────────────────────────────────────────
+async function kvGet(key){
+  try{
+    const r=await fetch(WORKER_URL+'/kv/'+key);
+    if(!r.ok)return null;
+    const d=await r.json();
+    return d.value??null;
+  }catch(e){return null;}
+}
+async function kvPut(key,value){
+  try{
+    await fetch(WORKER_URL+'/kv/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});
+  }catch(e){}
+}
+function showKvToast(msg,ok=false){
+  let t=document.getElementById('kv-toast');
+  if(!t){t=document.createElement('div');t.id='kv-toast';t.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:20px;font-size:12px;z-index:9999;transition:opacity .4s';document.body.appendChild(t);}
+  t.textContent=msg;t.style.background=ok?'#2d7a3a':'#b44';t.style.color='#fff';t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2500);
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function t(h,m,pm=false){if(pm&&h!==12)h+=12;if(!pm&&h===12)h=0;return h*60+m;}
 function minsToStr(m){const h=Math.floor(m/60),mn=m%60,ap=h>=12?'PM':'AM',h12=h%12||12;return`${h12}:${mn.toString().padStart(2,'0')} ${ap}`;}
@@ -56,13 +78,13 @@ function toggleDebugMode(){
 // ── Persistent no-carts list (localStorage) ───────────────────────────────────
 const PERM_KEY='cart-scheduler-permanent-no-carts';
 function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PERM_KEY)||'[]'));}catch(e){return new Set();}}
-function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));}
+function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));kvPut('perm-no-carts',[...set]).catch(()=>showKvToast('Sync failed — saved locally only'));}
 let permNoCart=loadPermNoCart();
 
 // ── Name corrections (persisted) ──────────────────────────────────────────────
 const CORRECTIONS_KEY='cart-scheduler-name-corrections';
 function loadCorrections(){try{return JSON.parse(localStorage.getItem(CORRECTIONS_KEY)||'{}');}catch(e){return {};}}
-function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));}
+function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));kvPut('name-corrections',obj).catch(()=>showKvToast('Sync failed — saved locally only'));}
 let nameCorrections=loadCorrections(); // {wrongName: correctName}
 
 function applyCorrections(empList){
@@ -81,10 +103,39 @@ let slotIntervals={}; // slotStart -> 15 or 30
 let scannedPages=[]; // array of {dataUrl, b64, name}
 let cartSchedImage=null; // single cart service schedule image
 
+
+// ── Load from KV on startup ───────────────────────────────────────────────────
+async function loadFromKV(){
+  // No-carts
+  const kvNoCart=await kvGet('perm-no-carts');
+  if(kvNoCart&&Array.isArray(kvNoCart)){
+    kvNoCart.forEach(n=>permNoCart.add(n));
+    savePermNoCart(permNoCart);
+    renderPermNoCartMenu();
+  }
+  // Name corrections
+  const kvCorr=await kvGet('name-corrections');
+  if(kvCorr&&typeof kvCorr==='object'){
+    nameCorrections={...nameCorrections,...kvCorr};
+    saveCorrections(nameCorrections);
+    renderPermNoCartMenu();
+  }
+  // Split range
+  const kvSplit=await kvGet('split-range');
+  if(kvSplit){
+    const ss=document.getElementById('split-start');
+    const se=document.getElementById('split-end');
+    if(ss&&kvSplit['split-start'])ss.value=kvSplit['split-start'];
+    if(se&&kvSplit['split-end'])se.value=kvSplit['split-end'];
+    applySplitRange();
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
   checkTerms();
   initSlots();
+  loadFromKV();
   renderPermNoCartMenu();
   renderHistory();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
@@ -160,7 +211,7 @@ function toggleMenu(){
   const m=document.getElementById('perm-menu');
   const opening=m.style.display!=='block';
   m.style.display=opening?'block':'none';
-  if(opening) loadFeedbackInbox();
+
 }
 function renderPermNoCartMenu(){
   const list=document.getElementById('perm-list');
@@ -260,6 +311,14 @@ async function submitFeedback(){
   }
 }
 
+function toggleFeedbackInbox(){
+  const section=document.getElementById('feedback-inbox-section');
+  if(!section)return;
+  const opening=section.style.display==='none';
+  section.style.display=opening?'block':'none';
+  if(opening) loadFeedbackInbox();
+}
+
 async function loadFeedbackInbox(){
   const section=document.getElementById('feedback-inbox-section');
   const list=document.getElementById('feedback-inbox-list');
@@ -351,7 +410,9 @@ function applySplitRange(){
   const startVal=document.getElementById('split-start').value;
   const endVal=document.getElementById('split-end').value;
   // Persist selection
-  localStorage.setItem('cart-scheduler-split-range',JSON.stringify({'split-start':startVal,'split-end':endVal}));
+  const splitVal={'split-start':startVal,'split-end':endVal};
+  localStorage.setItem('cart-scheduler-split-range',JSON.stringify(splitVal));
+  kvPut('split-range',splitVal).catch(()=>{});
   // Reset all to 30-min first
   BASE_SLOTS.forEach(m=>{
     slotIntervals[m]=30;
