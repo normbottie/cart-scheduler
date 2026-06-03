@@ -19,28 +19,11 @@
     <button id="menu-btn" class="menu-btn" onclick="toggleMenu()" title="Permanent exclusions">☰</button>
     <h1>Cart Scheduler</h1>
   </div>
-  <div style="display:flex;align-items:center;gap:6px">
-    <button id="undo-btn" onclick="undo()" style="display:none" class="hdr-icon-btn" title="Undo">↩</button>
-    <button id="dark-btn" onclick="toggleDarkMode()" class="hdr-icon-btn" title="Toggle dark mode">🌙</button>
-    <button onclick="showOnboarding()" class="hdr-icon-btn" title="How to use">?</button>
-    <button id="install-btn" onclick="promptInstall()" style="display:none" class="hdr-icon-btn" title="Install app">
-      <i class="ti ti-download"></i>
-    </button>
-    <span class="watermark-header">Made by Norm</span>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+    <button class="sm-btn" onclick="openFeedback()" style="font-size:11px;padding:4px 10px">Feedback</button>
+    <span class="watermark-header">Made by Norm Bottie</span>
   </div>
 </header>
-
-<!-- iOS install instructions modal -->
-<div id="ios-install-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1001;align-items:flex-end;justify-content:center;padding:0">
-  <div style="background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:24px 20px 32px;width:100%;max-width:480px;text-align:center;box-shadow:0 -4px 24px rgba(0,0,0,.2)">
-    <div style="font-size:32px;margin-bottom:10px">📲</div>
-    <h2 style="font-size:16px;font-weight:600;margin-bottom:8px">Install Cart Scheduler</h2>
-    <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px">
-      Tap the <strong>Share</strong> button <span style="font-size:16px">⎙</span> at the bottom of your browser,<br>then choose <strong>"Add to Home Screen"</strong>.
-    </p>
-    <button onclick="closeIOSModal()" style="width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">Got it</button>
-  </div>
-</div>
 
 <!-- Permanent no-cart menu -->
 <div id="perm-menu" style="display:none">
@@ -50,6 +33,10 @@
   <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
     <input type="text" id="perm-input" placeholder="Associate name..." style="flex:1;padding:6px 8px;font-size:16px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
     <button class="sm-btn" onclick="addPermNoCart()">Add</button>
+  </div>
+  <div id="feedback-inbox-section" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px">Feedback Inbox</div>
+    <div id="feedback-inbox-list" style="font-size:11px;color:var(--muted)">Loading...</div>
   </div>
   <div id="corrections-section" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">Name Corrections</div>
@@ -234,15 +221,12 @@
           <tbody id="sched-tbody"></tbody>
         </table>
       </div>
-      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;margin-top:12px">
         <button class="dl-btn" style="margin-top:0" onclick="exportPDF()">
           <i class="ti ti-download"></i> Download PDF
         </button>
         <button class="dl-btn" style="margin-top:0;background:var(--muted)" onclick="printPDF()">
           <i class="ti ti-printer"></i> Print
-        </button>
-        <button class="dl-btn" style="margin-top:0;background:var(--blue)" onclick="shareSchedule()">
-          <i class="ti ti-share"></i> Share
         </button>
       </div>
     </div>
@@ -280,10 +264,10 @@
     <div id="pin-section">
       <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Enter your PIN to continue.</p>
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px">
-        <input type="text" inputmode="numeric" maxlength="2" class="pin-digit" id="pin-0" oninput="pinInput(0)" onkeydown="pinKeydown(0,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
-        <input type="text" inputmode="numeric" maxlength="2" class="pin-digit" id="pin-1" oninput="pinInput(1)" onkeydown="pinKeydown(1,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
-        <input type="text" inputmode="numeric" maxlength="2" class="pin-digit" id="pin-2" oninput="pinInput(2)" onkeydown="pinKeydown(2,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
-        <input type="text" inputmode="numeric" maxlength="2" class="pin-digit" id="pin-3" oninput="pinInput(3)" onkeydown="pinKeydown(3,event)" autocomplete="off" autocorrect="off" autocapitalize="off">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-0" oninput="pinInput(0)">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-1" oninput="pinInput(1)">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-2" oninput="pinInput(2)">
+        <input type="password" inputmode="numeric" maxlength="1" class="pin-digit" id="pin-3" oninput="pinInput(3)">
       </div>
       <p id="pin-error" style="color:var(--red);font-size:12px;text-align:center;display:none;margin-bottom:8px">Incorrect PIN. Try again.</p>
       <button onclick="checkPin()" style="width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">
@@ -306,35 +290,22 @@
     </div>
   </div>
 </div>
-<!-- Override modal -->
-<div id="override-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1002;align-items:flex-end;justify-content:center;padding:0">
-  <div style="background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px;width:100%;max-width:480px;max-height:70vh;overflow-y:auto;box-shadow:0 -4px 24px rgba(0,0,0,.2)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div>
-        <div style="font-size:13px;font-weight:600">Swap at <span id="override-slot-time"></span></div>
-        <div style="font-size:12px;color:var(--muted)">Replacing <span id="override-current" style="font-weight:500;color:var(--text)"></span></div>
-      </div>
-      <button onclick="closeOverrideModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px">✕</button>
+<!-- Feedback modal -->
+<div id="feedback-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:24px;max-width:420px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="font-size:16px;font-weight:600;margin:0">Send Feedback</h2>
+      <button onclick="closeFeedback()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
     </div>
-    <div id="override-list"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="feedback-type-btn active" onclick="setFeedbackType(this,'bug')" id="ftype-bug">🐛 Bug</button>
+      <button class="feedback-type-btn" onclick="setFeedbackType(this,'suggestion')" id="ftype-suggestion">💡 Suggestion</button>
+      <button class="feedback-type-btn" onclick="setFeedbackType(this,'general')" id="ftype-general">💬 General</button>
+    </div>
+    <textarea id="feedback-text" placeholder="Describe the issue or suggestion..." style="width:100%;height:110px;padding:8px;font-size:14px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);resize:none;box-sizing:border-box"></textarea>
+    <div id="feedback-status" style="font-size:12px;color:var(--muted);min-height:16px;margin-top:6px"></div>
+    <button onclick="submitFeedback()" style="width:100%;margin-top:10px;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">Submit</button>
   </div>
 </div>
-
-<!-- Onboarding modal -->
-<div id="onboarding-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1002;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:24px;max-width:460px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto">
-    <h2 style="font-size:17px;font-weight:600;margin-bottom:16px">How to Use Cart Scheduler</h2>
-    <div class="onboard-step"><span class="onboard-num">1</span><div><strong>Scan the Daily Overview</strong> — photograph each page of today's schedule. Add as many pages as needed.</div></div>
-    <div class="onboard-step"><span class="onboard-num">2</span><div><strong>Scan Cart Service Schedule</strong> (optional) — automatically fills in how many people are needed per slot.</div></div>
-    <div class="onboard-step"><span class="onboard-num">3</span><div><strong>Build the schedule</strong> — AI reads the photos and extracts all associates, shifts, and meals.</div></div>
-    <div class="onboard-step"><span class="onboard-num">4</span><div><strong>Review associates</strong> — toggle "No carts" or "No sweep" per person. Edit names with ✏️ if needed.</div></div>
-    <div class="onboard-step"><span class="onboard-num">5</span><div><strong>Set FEC</strong> — confirm the Day FEC and Closing FEC. Auto-detected when possible.</div></div>
-    <div class="onboard-step"><span class="onboard-num">6</span><div><strong>Generate</strong> — review the schedule. Tap any assigned name to swap them with someone else.</div></div>
-    <div class="onboard-step"><span class="onboard-num">7</span><div><strong>Download, Print, or Share</strong> the finished PDF. The ↩ button in the header undoes recent changes.</div></div>
-    <p style="font-size:11px;color:var(--muted);margin-top:14px">Use ☰ to manage permanent no-carts exclusions and name corrections across devices.</p>
-    <button onclick="closeOnboarding()" style="width:100%;margin-top:16px;padding:11px;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--radius);cursor:pointer">Got it</button>
-  </div>
-</div>
-
 </body>
 </html>

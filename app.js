@@ -53,152 +53,16 @@ function toggleDebugMode(){
   btn.style.color=DEBUG_MODE?'white':'';
 }
 
-// ── KV sync helpers ───────────────────────────────────────────────────────────
-async function kvGet(key){
-  try{const r=await fetch(WORKER_URL+'/kv/'+key);if(!r.ok)return null;const d=await r.json();return d.value??null;}catch(e){return null;}
-}
-async function kvPut(key,value){
-  try{await fetch(WORKER_URL+'/kv/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});}catch(e){}
-}
-async function syncFromKV(){
-  const[remotePerms,remoteCorrections]=await Promise.all([kvGet('perm-no-carts'),kvGet('name-corrections')]);
-  if(Array.isArray(remotePerms)){remotePerms.forEach(n=>permNoCart.add(n));localStorage.setItem(PERM_KEY,JSON.stringify([...permNoCart]));}
-  if(remoteCorrections&&typeof remoteCorrections==='object'){Object.assign(nameCorrections,remoteCorrections);localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(nameCorrections));}
-  renderPermNoCartMenu();
-}
-
-// ── Undo stack ────────────────────────────────────────────────────────────────
-let undoStack=[];
-const MAX_UNDO=20;
-function pushUndo(){
-  undoStack.push({
-    excludeFromCarts:new Set(excludeFromCarts),
-    excludeFromSweep:new Set(excludeFromSweep),
-    employees:employees.map(e=>({...e,autoFecSegments:[...(e.autoFecSegments||[])],csCleaningSegments:[...(e.csCleaningSegments||[])],csFloorCareSegments:[...(e.csFloorCareSegments||[])]})),
-    slotCaps:{...slotCaps},slotTypes:{...slotTypes},
-    lastSchedule:lastSchedule?JSON.parse(JSON.stringify(lastSchedule)):null,
-  });
-  if(undoStack.length>MAX_UNDO)undoStack.shift();
-  updateUndoBtn();
-}
-function undo(){
-  if(!undoStack.length)return;
-  const state=undoStack.pop();
-  excludeFromCarts=state.excludeFromCarts;excludeFromSweep=state.excludeFromSweep;
-  employees=state.employees;slotCaps=state.slotCaps;slotTypes=state.slotTypes;
-  lastSchedule=state.lastSchedule;
-  if(employees.length){renderAssociates();renderFECOptions();}
-  renderSlotTable();
-  if(lastSchedule)renderResults();
-  updateUndoBtn();
-}
-function updateUndoBtn(){const btn=document.getElementById('undo-btn');if(btn)btn.style.display=undoStack.length?'flex':'none';}
-
-// ── Dark mode ─────────────────────────────────────────────────────────────────
-function toggleDarkMode(){
-  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const next=isDark?'light':'dark';
-  document.documentElement.setAttribute('data-theme',next);
-  localStorage.setItem('cart-scheduler-theme',next);
-  const btn=document.getElementById('dark-btn');
-  if(btn)btn.textContent=next==='dark'?'☀️':'🌙';
-}
-function initTheme(){
-  const saved=localStorage.getItem('cart-scheduler-theme');
-  const prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const theme=saved||(prefersDark?'dark':'light');
-  document.documentElement.setAttribute('data-theme',theme);
-  const btn=document.getElementById('dark-btn');
-  if(btn)btn.textContent=theme==='dark'?'☀️':'🌙';
-}
-
-// ── Manual slot override ──────────────────────────────────────────────────────
-let overrideSlotIdx=null,overrideAssigneeIdx=null;
-function getAvailableForSlot(slotStart,excludeNames){
-  const interval=slotIntervals[slotStart]||30;
-  const slotEnd=slotStart+interval;
-  const allExcluded=new Set([...excludeFromCarts,...permNoCart]);
-  const seen=new Set();
-  return employees.filter(e=>{
-    if(seen.has(e.name))return false;seen.add(e.name);
-    if(allExcluded.has(e.name))return false;
-    if(excludeNames.has(e.name))return false;
-    const cs=timeToMins(e.cartStart),ce=timeToMins(e.cartEnd);
-    if(cs===null||cs>slotStart||ce===null||ce<slotEnd)return false;
-    const ms=e.mealStart?timeToMins(e.mealStart):null,me=e.mealEnd?timeToMins(e.mealEnd):null;
-    if(ms!==null&&slotStart<me&&slotEnd>ms)return false;
-    if((e.autoFecSegments||[]).some(s=>{const fs=timeToMins(s.start),fe=timeToMins(s.end);return slotStart<fe&&slotEnd>fs;}))return false;
-    return true;
-  });
-}
-function openOverrideModal(slotIdx,assigneeIdx){
-  pushUndo();
-  overrideSlotIdx=slotIdx;overrideAssigneeIdx=assigneeIdx;
-  const slot=lastSchedule.schedule[slotIdx];
-  const currentName=slot.assigned[assigneeIdx].name;
-  const excludeNames=new Set(slot.assigned.map((a,i)=>i!==assigneeIdx?a.name:null).filter(Boolean));
-  const available=getAvailableForSlot(slot.start,excludeNames);
-  document.getElementById('override-slot-time').textContent=minsToStr(slot.start);
-  document.getElementById('override-current').textContent=currentName;
-  const list=document.getElementById('override-list');
-  list.innerHTML='';
-  if(!available.length){
-    list.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0">No one else available for this slot</div>';
-  }else{
-    available.forEach(e=>{
-      const btn=document.createElement('button');
-      btn.className='override-person-btn';
-      btn.innerHTML=`<span>${e.name}</span><span class="override-job">${jobLabel(e.job)}</span>`;
-      btn.onclick=()=>applyOverride(e.name,e.job);
-      list.appendChild(btn);
-    });
-  }
-  document.getElementById('override-modal').style.display='flex';
-}
-function closeOverrideModal(){
-  document.getElementById('override-modal').style.display='none';
-  overrideSlotIdx=null;overrideAssigneeIdx=null;
-}
-function applyOverride(newName,newJob){
-  if(overrideSlotIdx===null)return;
-  const slot=lastSchedule.schedule[overrideSlotIdx];
-  slot.assigned[overrideAssigneeIdx]={name:newName,job:newJob,fecOn:false,isMgr:['cstl','csm','mgr'].includes(newJob)};
-  closeOverrideModal();
-  renderResults();
-}
-
-// ── Schedule sharing ──────────────────────────────────────────────────────────
-async function shareSchedule(){
-  if(!lastSchedule)return;
-  if(!window.jspdf){alert('PDF library loading, please try again.');return;}
-  const jsPDF=window.jspdf.jsPDF;
-  const s=lastSchedule;
-  const doc=buildPDFDoc(jsPDF,s.schedule,s.fec1Name,s.fec2Name,s.scheduleDate);
-  const blob=doc.output('blob');
-  const filename=`Cart Schedule ${s.scheduleDate.replace(/\//g,'-')}.pdf`;
-  const file=new File([blob],filename,{type:'application/pdf'});
-  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({title:`Cart Schedule ${s.scheduleDate}`,files:[file]});}
-    catch(e){if(e.name!=='AbortError')exportPDF();}
-  }else{exportPDF();}
-}
-
-// ── Onboarding ────────────────────────────────────────────────────────────────
-const ONBOARD_KEY='cart-scheduler-onboarded';
-function checkOnboarding(){if(!localStorage.getItem(ONBOARD_KEY))showOnboarding();}
-function showOnboarding(){document.getElementById('onboarding-modal').style.display='flex';}
-function closeOnboarding(){localStorage.setItem(ONBOARD_KEY,'1');document.getElementById('onboarding-modal').style.display='none';}
-
-// ── Persistent no-carts list (localStorage + KV) ──────────────────────────────
+// ── Persistent no-carts list (localStorage) ───────────────────────────────────
 const PERM_KEY='cart-scheduler-permanent-no-carts';
 function loadPermNoCart(){try{return new Set(JSON.parse(localStorage.getItem(PERM_KEY)||'[]'));}catch(e){return new Set();}}
-function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));kvPut('perm-no-carts',[...set]).catch(()=>{});}
+function savePermNoCart(set){localStorage.setItem(PERM_KEY,JSON.stringify([...set]));}
 let permNoCart=loadPermNoCart();
 
-// ── Name corrections (localStorage + KV) ─────────────────────────────────────
+// ── Name corrections (persisted) ──────────────────────────────────────────────
 const CORRECTIONS_KEY='cart-scheduler-name-corrections';
 function loadCorrections(){try{return JSON.parse(localStorage.getItem(CORRECTIONS_KEY)||'{}');}catch(e){return {};}}
-function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));kvPut('name-corrections',obj).catch(()=>{});}
+function saveCorrections(obj){localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(obj));}
 let nameCorrections=loadCorrections(); // {wrongName: correctName}
 
 function applyCorrections(empList){
@@ -217,62 +81,13 @@ let slotIntervals={}; // slotStart -> 15 or 30
 let scannedPages=[]; // array of {dataUrl, b64, name}
 let cartSchedImage=null; // single cart service schedule image
 
-// ── PWA Install prompt ────────────────────────────────────────────────────────
-let deferredInstallPrompt=null;
-
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();
-  deferredInstallPrompt=e;
-  showInstallBtn();
-});
-
-window.addEventListener('appinstalled',()=>{
-  deferredInstallPrompt=null;
-  hideInstallBtn();
-});
-
-function showInstallBtn(){
-  const btn=document.getElementById('install-btn');
-  if(btn) btn.style.display='flex';
-}
-function hideInstallBtn(){
-  const btn=document.getElementById('install-btn');
-  if(btn) btn.style.display='none';
-}
-
-async function promptInstall(){
-  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
-  if(isStandalone){hideInstallBtn();return;}
-  if(isIOS){
-    document.getElementById('ios-install-modal').style.display='flex';
-    return;
-  }
-  if(deferredInstallPrompt){
-    deferredInstallPrompt.prompt();
-    const{outcome}=await deferredInstallPrompt.userChoice;
-    if(outcome==='accepted'){deferredInstallPrompt=null;hideInstallBtn();}
-  }
-}
-
-function closeIOSModal(){
-  document.getElementById('ios-install-modal').style.display='none';
-}
-
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',()=>{
   checkTerms();
-  initTheme();
   initSlots();
   renderPermNoCartMenu();
   renderHistory();
-  syncFromKV(); // pull remote KV data and merge
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
-
-  // Show install button on iOS if not already installed
-  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
-  if(isIOS&&!isStandalone) showInstallBtn();
   // PDF upload removed
   // Close menu on outside click
   document.getElementById('cart-sched-input').addEventListener('change',e=>{
@@ -296,11 +111,11 @@ window.addEventListener('load',()=>{
 // ── Terms agreement ──────────────────────────────────────────────────────────
 const PIN='1117'; // store number as default PIN
 const PIN_KEY='cart-scheduler-pin-ok';
-const pinDigits=['','','',''];
 
 function checkTerms(){
   const modal=document.getElementById('terms-modal');
   modal.style.display='flex';
+  // If PIN already verified on this device, skip straight to terms
   if(localStorage.getItem(PIN_KEY)==='1'){
     document.getElementById('pin-section').style.display='none';
     document.getElementById('terms-section').style.display='block';
@@ -313,32 +128,17 @@ function checkTerms(){
 
 function pinInput(idx){
   const inp=document.getElementById('pin-'+idx);
-  const raw=inp.value.replace(/●/g,'').replace(/[^0-9]/g,'');
-  if(raw){
-    pinDigits[idx]=raw.slice(-1);
-    inp.value='●';
-    if(idx<3)document.getElementById('pin-'+(idx+1)).focus();
-    if(idx===3)checkPin();
-  } else {
-    pinDigits[idx]='';
-    inp.value='';
+  // Only allow digits
+  inp.value=inp.value.replace(/[^0-9]/g,'');
+  if(inp.value&&idx<3){
+    document.getElementById('pin-'+(idx+1)).focus();
   }
-}
-
-function pinKeydown(idx,e){
-  if(e.key==='Backspace'){
-    const inp=document.getElementById('pin-'+idx);
-    if(inp.value===''&&idx>0){
-      pinDigits[idx-1]='';
-      const prev=document.getElementById('pin-'+(idx-1));
-      prev.value='';
-      prev.focus();
-    }
-  }
+  // Auto-submit when last digit entered
+  if(idx===3&&inp.value) checkPin();
 }
 
 function checkPin(){
-  const entered=pinDigits.join('');
+  const entered=[0,1,2,3].map(i=>document.getElementById('pin-'+i).value).join('');
   if(entered===PIN){
     localStorage.setItem(PIN_KEY,'1');
     document.getElementById('pin-section').style.display='none';
@@ -346,7 +146,6 @@ function checkPin(){
     document.getElementById('pin-error').style.display='none';
   } else {
     document.getElementById('pin-error').style.display='block';
-    pinDigits.fill('');
     [0,1,2,3].forEach(i=>document.getElementById('pin-'+i).value='');
     document.getElementById('pin-0').focus();
   }
@@ -359,7 +158,9 @@ function acceptTerms(){
 // ── Permanent no-cart menu ────────────────────────────────────────────────────
 function toggleMenu(){
   const m=document.getElementById('perm-menu');
-  m.style.display=m.style.display==='block'?'none':'block';
+  const opening=m.style.display!=='block';
+  m.style.display=opening?'block':'none';
+  if(opening) loadFeedbackInbox();
 }
 function renderPermNoCartMenu(){
   const list=document.getElementById('perm-list');
@@ -410,6 +211,76 @@ function addPermNoCart(){
   inp.value='';
   renderPermNoCartMenu();
 }
+
+// ── Feedback ──────────────────────────────────────────────────────────────────
+let feedbackType = 'bug';
+
+function openFeedback(){
+  document.getElementById('feedback-modal').style.display='flex';
+  document.getElementById('feedback-text').value='';
+  document.getElementById('feedback-status').textContent='';
+  feedbackType='bug';
+  document.querySelectorAll('.feedback-type-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ftype-bug').classList.add('active');
+  setTimeout(()=>document.getElementById('feedback-text').focus(),100);
+}
+
+function closeFeedback(){
+  document.getElementById('feedback-modal').style.display='none';
+}
+
+function setFeedbackType(btn, type){
+  feedbackType=type;
+  document.querySelectorAll('.feedback-type-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function submitFeedback(){
+  const msg=document.getElementById('feedback-text').value.trim();
+  const status=document.getElementById('feedback-status');
+  if(!msg){status.textContent='Please enter a message.';return;}
+  status.textContent='Sending...';
+  try{
+    const r=await fetch(WORKER_URL+'/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg,type:feedbackType})});
+    if(r.ok){
+      status.style.color='var(--green,#2d7a3a)';
+      status.textContent='Sent! Thank you.';
+      setTimeout(closeFeedback,1500);
+    } else {
+      status.style.color='var(--red)';
+      status.textContent='Failed to send. Try again.';
+    }
+  }catch(e){
+    status.style.color='var(--red)';
+    status.textContent='Network error. Try again.';
+  }
+}
+
+async function loadFeedbackInbox(){
+  const section=document.getElementById('feedback-inbox-section');
+  const list=document.getElementById('feedback-inbox-list');
+  if(!section||!list)return;
+  section.style.display='block';
+  try{
+    const r=await fetch(WORKER_URL+'/feedback?pin=1117');
+    if(!r.ok){list.textContent='Could not load feedback.';return;}
+    const data=await r.json();
+    if(!data.list||data.list.length===0){list.textContent='No feedback yet.';return;}
+    list.innerHTML=data.list.map(f=>{
+      const d=new Date(f.ts);
+      const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      return`<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;gap:6px;margin-bottom:3px">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--accent)">${f.type}</span>
+          <span style="font-size:10px;color:var(--muted)">${dateStr}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text)">${f.message.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      </div>`;
+    }).join('');
+  }catch(e){list.textContent='Error loading feedback.';}
+}
+
 function removePermNoCart(name){
   permNoCart.delete(name);
   savePermNoCart(permNoCart);
@@ -937,7 +808,6 @@ function renderFECOptions(){
 function jobLabel(j){return{fsc:'Front Svc Clerk',cashier:'Cashier',css:'CS Staff',cstl:'CS Team Leader',csm:'CS Manager',mgr:'Manager'}[j]||j;}
 
 function toggleExclude(type,name,btn){
-  pushUndo();
   const set=type==='cart'?excludeFromCarts:excludeFromSweep;
   const cls=type==='cart'?'active-no-cart':'active-no-sweep';
   const label=type==='cart'?'No carts':'No sweep';
@@ -961,7 +831,6 @@ function saveEditName(i){
   if(!newName)return;
   const oldName=employees[i].name;
   if(oldName===newName){document.getElementById('name-edit-'+i).style.display='none';return;}
-  pushUndo();
   // Ask if they want to save this correction permanently
   const savePerm=confirm('Save "'+oldName+'" → "'+newName+'" as a permanent correction?\nNext time this name appears it will be auto-fixed.');
   if(savePerm){
@@ -1042,8 +911,8 @@ function renderSlotTable(){
         const tr=document.createElement('tr');
         tr.className='slot-15';
         tr.innerHTML=`<td class="time-cell"><span class="slot-15-indicator">15</span>${minsToStr(s)}</td>
-          <td><input type="number" min="0" max="10" value="${slotCaps[s]||0}" onchange="pushUndo();slotCaps[${s}]=parseInt(this.value)||0"></td>
-          <td><select onchange="pushUndo();slotTypes[${s}]=this.value">
+          <td><input type="number" min="0" max="10" value="${slotCaps[s]||0}" onchange="slotCaps[${s}]=parseInt(this.value)||0"></td>
+          <td><select onchange="slotTypes[${s}]=this.value">
             <option value="cart"${slotTypes[s]==='cart'?' selected':''}>Cart</option>
             <option value="lot"${slotTypes[s]==='lot'?' selected':''}>Lot/Bag</option>
           </select></td>`;
@@ -1052,8 +921,8 @@ function renderSlotTable(){
     } else {
       const tr=document.createElement('tr');
       tr.innerHTML=`<td class="time-cell">${minsToStr(m)}</td>
-        <td><input type="number" min="0" max="10" value="${slotCaps[m]||0}" onchange="pushUndo();slotCaps[${m}]=parseInt(this.value)||0"></td>
-        <td><select onchange="pushUndo();slotTypes[${m}]=this.value">
+        <td><input type="number" min="0" max="10" value="${slotCaps[m]||0}" onchange="slotCaps[${m}]=parseInt(this.value)||0"></td>
+        <td><select onchange="slotTypes[${m}]=this.value">
           <option value="cart"${slotTypes[m]==='cart'?' selected':''}>Cart</option>
           <option value="lot"${slotTypes[m]==='lot'?' selected':''}>Lot/Bag</option>
         </select></td>`;
@@ -1062,13 +931,11 @@ function renderSlotTable(){
   }
 }
 function setAllCap(){
-  pushUndo();
   const v=parseInt(document.getElementById('bulk-cap').value)||1;
   SLOTS.forEach(m=>{slotCaps[m]=v;});
   renderSlotTable();
 }
 function setAllType(){
-  pushUndo();
   const tp=document.getElementById('bulk-type').value;
   SLOTS.forEach(m=>{slotTypes[m]=tp;});
   renderSlotTable();
@@ -1389,16 +1256,16 @@ function renderResults(){
   });
 
   const stbody=document.getElementById('sched-tbody');stbody.innerHTML='';
-  schedule.forEach((s,si)=>{
+  schedule.forEach(s=>{
     const tr=document.createElement('tr');
     const numCell=s.type==='lot'?`<span class="lot-type">Lot/Bag</span>`:s.cap;
     const names=s.assigned.length
-      ?s.assigned.map((a,ai)=>{
-        let cls='sched-name override-tap';
+      ?s.assigned.map(a=>{
+        let cls='sched-name';
         if(a.fecOn)cls+=' fec-on';
         else if(a.isMgr)cls+=' cstl';
         else if(s.type==='lot')cls+=' lot';
-        return`<span class="${cls}" onclick="openOverrideModal(${si},${ai})" title="Tap to swap">${a.name}${a.fecOn?' *':a.isMgr?' †':''}</span>`;
+        return`<span class="${cls}">${a.name}${a.fecOn?' *':a.isMgr?' †':''}</span>`;
       }).join('')
       :'<span style="color:var(--muted);font-size:11px">—</span>';
     const sw=s.sweep?(Array.isArray(s.sweep)?s.sweep:[s.sweep]).map(n=>`<span class="sched-name sweep">${n}</span>`).join(''):'' ;
