@@ -106,18 +106,18 @@ let cartSchedImage=null; // single cart service schedule image
 
 // ── Load from KV on startup ───────────────────────────────────────────────────
 async function loadFromKV(){
-  // No-carts
+  // No-carts — KV is source of truth, overwrite local
   const kvNoCart=await kvGet('perm-no-carts');
   if(kvNoCart&&Array.isArray(kvNoCart)){
-    kvNoCart.forEach(n=>permNoCart.add(n));
-    savePermNoCart(permNoCart);
+    permNoCart=new Set(kvNoCart);
+    localStorage.setItem(PERM_KEY,JSON.stringify([...permNoCart]));
     renderPermNoCartMenu();
   }
-  // Name corrections
+  // Name corrections — KV is source of truth, overwrite local
   const kvCorr=await kvGet('name-corrections');
   if(kvCorr&&typeof kvCorr==='object'){
-    nameCorrections={...nameCorrections,...kvCorr};
-    saveCorrections(nameCorrections);
+    nameCorrections=kvCorr;
+    localStorage.setItem(CORRECTIONS_KEY,JSON.stringify(nameCorrections));
     renderPermNoCartMenu();
   }
   // Split range
