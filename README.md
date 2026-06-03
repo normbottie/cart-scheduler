@@ -107,14 +107,14 @@ Loads mock data instantly, skips all AI calls. Mock includes ~11 associates cove
 
 ## Deployment
 ```bash
-# Frontend
-cd cart-scheduler
+# Frontend (alias: cs)
+cs
 git add .
 git commit -m "your message"
 git push origin main
 
-# Worker
-cd cart-scheduler-worker
+# Worker (alias: csw)
+csw
 wrangler deploy
 ```
 
@@ -129,3 +129,11 @@ wrangler deploy
 - ~~Cloudflare KV sync for permanent no-carts list (cross-device)~~ ✅ Complete
 - ~~More robust AM/PM time parsing for edge cases~~ ✅ Complete
 - Time window editor for individual associate cart windows
+
+## Recent Changes
+- Merged v2-dev into main — single branch going forward
+- Username renamed from nabotomy → normbottie
+- Rate limiting: 50 AI calls per IP per 24hr via KV
+- Feedback system: in-app form (Bug/Suggestion/General) → stored in KV + email via Mailjet (carts@norm.network → normbottie@gmail.com)
+- Reload app button in ☰ menu (also triggers SW update check)
+- KV sync fixed: load overwrites local instead of merging; add/remove reads KV before writing
